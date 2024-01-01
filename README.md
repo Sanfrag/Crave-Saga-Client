@@ -1,4 +1,4 @@
-# Crave Saga Web Client
+# Crave Saga NW.js Client
 
 This repo provides a nw.js wrapper for the game with added QoL features:
 

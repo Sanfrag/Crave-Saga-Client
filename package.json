@@ -1,0 +1,22 @@
+{
+  "name": "cravesaga",
+  "main": "app/main.js",
+  "icon": "./app/icon.png",
+  "displayName": "Crave Saga",
+  "inject_js_end": "app/script.js",
+  "node-remote": "<all_urls>",
+  "devDependencies": {
+    "nw-builder": "^4.5.3",
+    "nwjs-types": "^1.0.0"
+  },
+  "window": {
+    "resizable": true,
+    "width": 375,
+    "height": 667,
+    "position": "center",
+    "icon": "app/icon.png"
+  },
+  "dependencies": {
+    "ini": "^4.1.1"
+  }
+}

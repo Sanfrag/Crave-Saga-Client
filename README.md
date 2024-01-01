@@ -9,3 +9,5 @@ This repo provides a nw.js wrapper for the game with added QoL features:
 * Blackout (to reduce distraction)
 * Ambient background
 * Screenshot
+
+Currently only support EROLABS version

@@ -161,6 +161,39 @@ function createAmbientCanvas(gameDiv, gameCanvas) {
   return ambientCanvas;
 }
 
+let targetBrightness = 100;
+const blackoutHalfBrightness = 65;
+
+function blackoutFadeAnimation(gameCanvas, ambientCanvas) {
+  let currentBrightness = 100;
+  let lastTime = Date.now();
+
+  const updateBrightness = () => {
+    const now = Date.now();
+    const delta = now - lastTime;
+    lastTime = now;
+
+    const diff = targetBrightness - currentBrightness;
+    const step = diff * delta * 0.015;
+    
+    if (targetBrightness > currentBrightness) {
+      currentBrightness = Math.min(currentBrightness + step, targetBrightness);
+    } else {
+      currentBrightness = Math.max(currentBrightness + step, targetBrightness);
+    }
+
+    if (gameCanvas) {
+      gameCanvas.style.filter = `brightness(${currentBrightness}%)`;
+      if (ambientCanvas) {
+        ambientCanvas.style.filter = `blur(128px) brightness(${currentBrightness * 0.75}%)`;
+      }
+    }
+    requestAnimationFrame(updateBrightness);
+  };
+
+  updateBrightness();
+}
+
 //=============================
 // Game Page
 //=============================
@@ -168,6 +201,7 @@ function processGamePage() {
   disableBackgroundMute();
 
   const win = nw.Window.get(null);
+  let mouseIsInside = true;
 
   /** @type {HTMLDivElement?} */
   const background = document.querySelector('#Background');
@@ -179,6 +213,7 @@ function processGamePage() {
   // Fun stuff
   canvasInitialize(gameCanvas);
   const aimbientCanvas = createAmbientCanvas(gameDiv, gameCanvas);
+  blackoutFadeAnimation(gameCanvas, aimbientCanvas);
 
   // Context menu
   const menu = new nw.Menu();
@@ -295,11 +330,8 @@ function processGamePage() {
 
   const blackout = () => {
     if (gameCanvas) {
-      const isBlackout = gameCanvas.style.filter?.length > 0;
-      gameCanvas.style.filter = isBlackout ? '' : 'brightness(0%)';
-      if (aimbientCanvas)
-        aimbientCanvas.style.filter = isBlackout ? 'blur(128px) brightness(75%)' : 'brightness(0%)';
-      blackoutItem.checked = !isBlackout;
+      const isBlackout = blackoutItem.checked;
+      targetBrightness = !isBlackout ? 100 : mouseIsInside ? blackoutHalfBrightness : 0;
     }
   };
   blackoutItem.click = blackout;
@@ -317,16 +349,27 @@ function processGamePage() {
   //=============================
   // Handlers
   //=============================
-  document.body.addEventListener('contextmenu', function (ev) {
+  document.body.addEventListener('contextmenu', ev => {
     ev.preventDefault();
     menu.popup(ev.x, ev.y);
     return false;
+  });
+
+  document.body.addEventListener('mouseenter', () => {
+    mouseIsInside = true;
+    if (gameCanvas && blackoutItem.checked) targetBrightness = blackoutHalfBrightness;
+  });
+
+  document.body.addEventListener('mouseleave', () => {
+    mouseIsInside = false;
+    if (gameCanvas && blackoutItem.checked) targetBrightness = 0;
   });
 
   const keydownHandler = ev => {
     if (ev.key === 'f') {
       win.toggleFullscreen();
     } else if (ev.key === 'b') {
+      blackoutItem.checked = !blackoutItem.checked;
       blackout();
     } else if (ev.key === 'm') {
       toggleMute();

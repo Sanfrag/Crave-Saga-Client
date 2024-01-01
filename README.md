@@ -1,6 +1,6 @@
 # Crave Saga NW.js Client
 
-This repo provides a nw.js wrapper for the game with added QoL features:
+This repo provides a third-party nw.js wrapper for the game with added QoL features:
 
 * Auto scaling
 * Fullscreen toggling
@@ -9,5 +9,6 @@ This repo provides a nw.js wrapper for the game with added QoL features:
 * Blackout (to reduce distraction)
 * Ambient background
 * Screenshot
+* Proxy support
 
 Currently only support EROLABS version

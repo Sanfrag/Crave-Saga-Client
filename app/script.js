@@ -15,6 +15,8 @@ try {
   config = ini.parse(fs.readFileSync('./config.ini', 'utf-8'));
 } catch {}
 
+console.log(config);
+
 //=============================
 // Helpers
 //=============================
@@ -209,7 +211,9 @@ function blackoutFadeAnimation(gameCanvas, ambientCanvas) {
         gameCanvas.style.filter = `brightness(${currentBrightness.toFixed(2)}%)`;
       }
       if (ambientCanvas) {
-        ambientCanvas.style.filter = `blur(128px) brightness(${(currentBrightness * 0.75).toFixed(2)}%)`;
+        ambientCanvas.style.filter = `blur(128px) brightness(${(currentBrightness * 0.75).toFixed(
+          2
+        )}%)`;
       }
     }
     requestAnimationFrame(updateBrightness);

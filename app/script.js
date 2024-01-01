@@ -163,6 +163,21 @@ function createAmbientCanvas(gameDiv, gameCanvas) {
 
 let targetBrightness = 100;
 const blackoutHalfBrightness = 65;
+let brightnessSettingTimeout;
+
+function setBrightness(brightness, delay) {
+  if (brightnessSettingTimeout) {
+    clearTimeout(brightnessSettingTimeout);
+  }
+  if (delay === undefined) {
+    targetBrightness = brightness;
+    brightnessSettingTimeout = undefined;
+    return;
+  }
+  brightnessSettingTimeout = setTimeout(() => {
+    targetBrightness = brightness;
+  }, delay);
+}
 
 function blackoutFadeAnimation(gameCanvas, ambientCanvas) {
   let currentBrightness = 100;
@@ -173,9 +188,13 @@ function blackoutFadeAnimation(gameCanvas, ambientCanvas) {
     const delta = now - lastTime;
     lastTime = now;
 
+    if (Math.abs(currentBrightness - 100) < 0.01 && targetBrightness <= blackoutHalfBrightness) {
+      currentBrightness = blackoutHalfBrightness;
+    }
+
     const diff = targetBrightness - currentBrightness;
     const step = diff * delta * 0.015;
-    
+
     if (targetBrightness > currentBrightness) {
       currentBrightness = Math.min(currentBrightness + step, targetBrightness);
     } else {
@@ -183,9 +202,14 @@ function blackoutFadeAnimation(gameCanvas, ambientCanvas) {
     }
 
     if (gameCanvas) {
-      gameCanvas.style.filter = `brightness(${currentBrightness}%)`;
+      if (Math.abs(targetBrightness - 100) < 0.01) {
+        gameCanvas.style.filter = '';
+        currentBrightness = 100;
+      } else {
+        gameCanvas.style.filter = `brightness(${currentBrightness.toFixed(2)}%)`;
+      }
       if (ambientCanvas) {
-        ambientCanvas.style.filter = `blur(128px) brightness(${currentBrightness * 0.75}%)`;
+        ambientCanvas.style.filter = `blur(128px) brightness(${(currentBrightness * 0.75).toFixed(2)}%)`;
       }
     }
     requestAnimationFrame(updateBrightness);
@@ -331,7 +355,7 @@ function processGamePage() {
   const blackout = () => {
     if (gameCanvas) {
       const isBlackout = blackoutItem.checked;
-      targetBrightness = !isBlackout ? 100 : mouseIsInside ? blackoutHalfBrightness : 0;
+      setBrightness(!isBlackout ? 100 : mouseIsInside ? blackoutHalfBrightness : 0);
     }
   };
   blackoutItem.click = blackout;
@@ -357,12 +381,12 @@ function processGamePage() {
 
   document.body.addEventListener('mouseenter', () => {
     mouseIsInside = true;
-    if (gameCanvas && blackoutItem.checked) targetBrightness = blackoutHalfBrightness;
+    if (gameCanvas && blackoutItem.checked) setBrightness(blackoutHalfBrightness);
   });
 
   document.body.addEventListener('mouseleave', () => {
     mouseIsInside = false;
-    if (gameCanvas && blackoutItem.checked) targetBrightness = 0;
+    if (gameCanvas && blackoutItem.checked) setBrightness(0, 350);
   });
 
   const keydownHandler = ev => {

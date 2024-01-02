@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>Crave Saga</title>
+
+    <style>
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0;
+        flex-wrap: wrap;
+        background-color: #313338;
+      }
+
+      .banner {
+        background-color: #232428;
+        padding: 20px;
+        text-align: center;
+        width: 100%;
+        margin-bottom: 80px;
+      }
+
+      .banner h1 {
+        color: #fff;
+        font-size: 32px;
+        margin: 0;
+      }
+
+      .icon-button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100px;
+        height: 100px;
+        background-color: #232428;
+        border-radius: 10px;
+        margin: 10px;
+        padding: 10px;
+        box-sizing: border-box;
+        text-align: center;
+        color: #fff;
+        border: none; /* Remove button's default border */
+        outline: none; /* Remove button's default outline */
+        cursor: pointer; /* Add cursor pointer */
+      }
+
+      .icon-button:focus {
+        /* Add focus style */
+        box-shadow: 0 0 0 2px #fff;
+      }
+
+      .icon-button:hover {
+        /* Add hover style */
+        background-color: #3a3d40;
+      }
+
+      .icon-button:active {
+        /* Add active style */
+        background-color: #1f2022;
+      }
+
+      .icon {
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+
+      .text {
+        font-size: 14px;
+      }
+
+      .icon img {
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      .img-shadow {
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255));
+      }
+    </style>
+    <script>
+      nw.global.selector = window.location.href;
+
+      const url = new URL(window.location.href);
+      const reselect = url.searchParams.get('reselect');
+
+      function erolabs() {
+        nw.global.provider = 'Crave Saga X (EROLABS)';
+        nw.global.loginRegex = /login\.html/;
+        nw.global.pageRegex = /webGL\.html\?id=47/;
+        nw.global.gameRegex = /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/;
+        nw.global.cookieHosts = ['ero-labs.com', 'www.ero-labs.com'];
+        nw.global.entryUrl = 'https://ero-labs.com/webGL.html?id=47';
+        localStorage.setItem('defaultProvider', 'erolabs');
+        window.location.href = nw.global.entryUrl;
+      }
+
+      function johrenSfw() {
+        nw.global.provider = 'Crave Saga (Johren)';
+        nw.global.loginRegex = /login\.html/;
+        nw.global.pageRegex = /cravesaga-en\/play/;
+        nw.global.wrapperRegex = [/osapi\.johren\.net/];
+        nw.global.gameRegex = /https:\/\/johren-client-en\.g\.cravesaga\.johren\.games/;
+        nw.global.cookieHosts = ['www.johren.net', 'johren.net'];
+        nw.global.entryUrl = 'https://www.johren.net/games/cravesaga-en/play';
+        localStorage.setItem('defaultProvider', 'johrenSfw');
+        window.location.href = nw.global.entryUrl;
+      }
+
+      function johrenNsfw() {
+        nw.global.provider = 'Crave Saga X (Johren)';
+        nw.global.loginRegex = /login\.html/;
+        nw.global.pageRegex = /cravesagax-en\/play/;
+        nw.global.wrapperRegex = [/osapi\.johren\.net/];
+        nw.global.gameRegex = /https:\/\/johren-client-en\.r\.cravesaga\.johren\.games/;
+        nw.global.cookieHosts = ['www.johren.games', 'johren.games'];
+        nw.global.entryUrl = 'https://www.johren.games/games/cravesagax-en/play';
+        localStorage.setItem('defaultProvider', 'johrenNsfw');
+        window.location.href = nw.global.entryUrl;
+      }
+
+      function nutakuCom() {
+        nw.global.provider = 'Crave Saga (nutaku.com)';
+        nw.global.loginRegex = /crave-saga\/?$/;
+        nw.global.pageRegex = /crave-saga\/play/;
+        nw.global.wrapperRegex = [/osapi\.nutaku\.com/];
+        nw.global.gameRegex = /https:\/\/nutaku-client-en\.g\.cravesaga\.johren\.games/;
+        nw.global.cookieHosts = ['www.nutaku.com', 'nutaku.com'];
+        nw.global.entryUrl = 'https://www.nutaku.com/games/crave-saga/play/';
+        localStorage.setItem('defaultProvider', 'nutakuCom');
+        window.location.href = nw.global.entryUrl;
+      }
+
+      function nutakuNet() {
+        nw.global.provider = 'Crave Saga X (nutaku.net)';
+        nw.global.loginRegex = /crave-saga-x\/?$/;
+        nw.global.pageRegex = /crave-saga-x\/play/;
+        nw.global.wrapperRegex = [/osapi\.nutaku\.com/];
+        nw.global.gameRegex = /https:\/\/nutaku-client-en\.r\.cravesaga\.johren\.games/;
+        nw.global.cookieHosts = ['www.nutaku.net', 'nutaku.net'];
+        nw.global.entryUrl = 'https://www.nutaku.net/games/crave-saga-x/play/';
+        localStorage.setItem('defaultProvider', 'nutakuNet');
+        window.location.href = nw.global.entryUrl;
+      }
+
+      var provider = reselect ? null : localStorage.getItem('defaultProvider');
+      if (provider === 'erolabs') {
+        erolabs();
+      } else if (provider === 'johrenSfw') {
+        johrenSfw();
+      } else if (provider === 'johrenNsfw') {
+        johrenNsfw();
+      } else if (provider === 'nutakuCom') {
+        nutakuCom();
+      } else if (provider === 'nutakuNet') {
+        nutakuNet();
+      } else {
+        localStorage.removeItem('defaultProvider');
+      }
+    </script>
+  </head>
+  <body>
+    <div class="banner">
+      <h1>Select a provider</h1>
+    </div>
+
+    <button class="icon-button" onclick="erolabs()">
+      <i class="icon"><img src="https://www.ero-labs.com/assets/images/logo.webp" /></i>
+      <span class="text">EROLABS (NSFW)</span>
+    </button>
+    <button class="icon-button" onclick="johrenSfw()">
+      <i class="icon"><img src="https://www.johren.net/images/brand/type/logo.svg" /></i>
+      <span class="text">Johren (SFW)</span>
+    </button>
+    <button class="icon-button" onclick="johrenNsfw()">
+      <i class="icon"><img src="https://www.johren.games/images/brand/type/logo_adult.svg" /></i>
+      <span class="text">Johren 18+ (NSFW)</span>
+    </button>
+    <button class="icon-button" onclick="nutakuCom()">
+      <i class="icon"
+        ><img
+          class="img-shadow"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Nutaku_logo.svg/768px-Nutaku_logo.svg.png"
+      /></i>
+      <span class="text">nutaku.com (SFW)</span>
+    </button>
+    <button class="icon-button" onclick="nutakuNet()">
+      <i class="icon"
+        ><img
+          class="img-shadow"
+          src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Nutaku_logo.svg/768px-Nutaku_logo.svg.png"
+      /></i>
+      <span class="text">nutaku.net (NSFW)</span>
+    </button>
+  </body>
+</html>

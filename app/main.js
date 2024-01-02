@@ -5,6 +5,8 @@ const iniPath = isDev ? 'release/app/ini' : 'app/ini';
 const fs = require('fs');
 const ini = require(iniPath);
 
+const selector = isDev ? 'release/app/selector.html' : 'app/selector.html';
+
 let config = {};
 
 try {
@@ -16,7 +18,7 @@ if (config.proxy && config.proxy.host && config.proxy.port) {
   if (config.proxy.username) {
     const username = encodeURIComponent(config.proxy.username);
     let userPrefix = username;
-    
+
     if (config.proxy.password) {
       const password = encodeURIComponent(config.proxy.password);
       userPrefix = `${username}:${password}`;
@@ -28,7 +30,7 @@ if (config.proxy && config.proxy.host && config.proxy.port) {
 }
 
 nw.Window.open(
-  'https://ero-labs.com/webGL.html?id=47',
+  selector,
   { title: 'Crave Saga', id: 'CraveSaga', icon: 'app/icon.png' },
   function (win) {
     win.setMinimumSize(178, 316);

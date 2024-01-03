@@ -117,13 +117,47 @@ var process;
   //=============================
   function processWebGLPage() {
     // find a iframe element and directly switch to it, effectively strip the outer frame
-    const iframe = document.querySelector('iframe');
-    if (iframe) {
-      iframe.onload = () => {
+    const iframes = document.querySelectorAll('iframe');
+
+    function checkFrame(iframe) {
+      /** @type {any} */
+      const anyNW = nw;
+      if (!anyNW?.global?.provider) return;
+
+      const url = iframe.src;
+
+      if (anyNW.global.wrapperRegex) {
+        for (const regex of anyNW.global.wrapperRegex) {
+          if (url.match(regex)) {
+            return true;
+          }
+        }
+      }
+
+      if (url.match(anyNW.global.gameRegex)) return true;
+      return false;
+    }
+
+    function checkFrameAndSwitch(iframe) {
+      if (checkFrame(iframe)) {
         window.stop();
-        window.document.write(`<body style="background-color: #1d2630;"></body>`);
+        window.document.write(`<body style="background-color: #000;"></body>`);
         window.location.href = iframe.src;
-      };
+      }
+    }
+
+    for (const iframe of iframes) {
+      if (iframe) {
+        iframe.onload = () => {
+          checkFrameAndSwitch(iframe);
+        };
+
+        // @ts-ignore
+        var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        if (iframeDoc.readyState == 'complete') {
+          checkFrameAndSwitch(iframe);
+        }
+      }
     }
   }
 
@@ -610,6 +644,13 @@ var process;
   }
 
   function Main() {
+    const keydownHandler = ev => {
+      if (ev.key === 'r' && ev.ctrlKey) {
+        nw.Window.get(null).reload();
+      }
+    };
+    document.body.addEventListener('keydown', keydownHandler);
+
     /** @type {any} */
     const anyNW = nw;
     if (!anyNW?.global?.provider) return;
@@ -636,13 +677,6 @@ var process;
     } else {
       injectBackButton();
     }
-
-    const keydownHandler = ev => {
-      if (ev.key === 'r' && ev.ctrlKey) {
-        nw.Window.get(null).reload();
-      }
-    };
-    document.body.addEventListener('keydown', keydownHandler);
   }
 
   Main();

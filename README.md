@@ -10,4 +10,4 @@ This repo provides a third-party nw.js wrapper for the game with added QoL featu
 * Ambient background
 * Screenshot
 * Proxy support
-* Provider selector (EROLABS, Johren, nutaku)
+* Provider selector (EROLABS, Johren, nutaku, DMM)

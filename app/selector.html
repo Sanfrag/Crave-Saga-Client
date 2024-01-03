@@ -107,6 +107,18 @@
         nw.global.loginRegex = /login\.html/;
         nw.global.pageRegex = /webGL\.html\?id=47/;
         nw.global.gameRegex = /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/;
+        nw.global.langs = [
+          {
+            name: 'English',
+            regex: /erolabs-client-en/,
+            url: 'https://ero-labs.com/en/webGL.html?id=47',
+          },
+          {
+            name: '简体中文',
+            regex: /erolabs-client-ch/,
+            url: 'https://ero-labs.com/cn/webGL.html?id=47',
+          },
+        ];
         nw.global.cookieHosts = ['ero-labs.com', 'www.ero-labs.com'];
         nw.global.entryUrl = 'https://ero-labs.com/webGL.html?id=47';
         localStorage.setItem('defaultProvider', 'erolabs');

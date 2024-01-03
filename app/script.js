@@ -293,6 +293,9 @@ var process;
   // Game Page
   //=============================
   function processGamePage() {
+    /** @type {any} */
+    const anyNW = nw;
+
     disableBackgroundMute();
 
     const win = nw.Window.get(null);
@@ -340,6 +343,35 @@ var process;
     const changeProviderItem = item(null, 'Change provider', () => {
       changeProvider();
     });
+
+    const langItems = [];
+    if (anyNW.global.langs) {
+      for (const lang of anyNW.global.langs) {
+        const langName = lang.name;
+        const langRegex = lang.regex;
+        const langUrl = lang.url;
+        if (window.location.href.match(langRegex)) {
+          continue;
+        }
+
+        const langItem = item(null, langName, () => {
+          nw.Window.get(null).window.location.href = langUrl;
+        });
+        langItems.push(langItem);
+      }
+    }
+
+    let langMenuItem = null;
+
+    if (langItems.length > 1) {
+      langMenuItem = new nw.MenuItem({ label: 'Language', submenu: new nw.Menu() });
+      for (const langItem of langItems) {
+        langMenuItem.submenu.append(langItem);
+      }
+    } else if (langItems.length === 1) {
+      langMenuItem = langItems[0];
+      langMenuItem.label = `Change language: ${langMenuItem.label}`;
+    }
 
     const reloadItem = itemMod('ctrl', 'r', 'Reload', () => win.reload());
     const clearCacheItem = item(null, 'Clear cache and reload', () => {
@@ -399,8 +431,6 @@ var process;
     dataMenu.append(clearCacheItem);
     dataMenu.append(logoutItem);
 
-    /** @type {any} */
-    const anyNW = nw;
     menu.append(info(anyNW.global.provider));
     menu.append(separator);
     menu.append(fullscreenItem);
@@ -411,6 +441,7 @@ var process;
     menu.append(new nw.MenuItem({ label: 'Audio', submenu: audioMenu }));
     menu.append(separator);
     menu.append(changeProviderItem);
+    if (langMenuItem) menu.append(langMenuItem);
     menu.append(separator);
     menu.append(new nw.MenuItem({ label: 'Data', submenu: dataMenu }));
 

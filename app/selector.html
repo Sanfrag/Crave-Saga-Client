@@ -106,7 +106,10 @@
         nw.global.provider = 'Crave Saga X (EROLABS)';
         nw.global.loginRegex = /login\.html/;
         nw.global.pageRegex = /webGL\.html\?id=47/;
-        nw.global.gameRegex = /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/;
+        nw.global.gameRegex = [
+          /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/,
+          /\.cloudfront\.net/,
+        ];
         nw.global.langs = [
           {
             name: 'English',
@@ -130,7 +133,7 @@
         nw.global.loginRegex = /login\.html/;
         nw.global.pageRegex = /cravesaga-en\/play/;
         nw.global.wrapperRegex = [/osapi\.johren\.net/];
-        nw.global.gameRegex = /https:\/\/johren-client-en\.g\.cravesaga\.johren\.games/;
+        nw.global.gameRegex = [/https:\/\/johren-client-en\.g\.cravesaga\.johren\.games/];
         nw.global.cookieHosts = ['www.johren.net', 'johren.net'];
         nw.global.entryUrl = 'https://www.johren.net/games/cravesaga-en/play';
         localStorage.setItem('defaultProvider', 'johrenSfw');
@@ -142,7 +145,7 @@
         nw.global.loginRegex = /login\.html/;
         nw.global.pageRegex = /cravesagax-en\/play/;
         nw.global.wrapperRegex = [/osapi\.johren\.net/];
-        nw.global.gameRegex = /https:\/\/johren-client-en\.r\.cravesaga\.johren\.games/;
+        nw.global.gameRegex = [/https:\/\/johren-client-en\.r\.cravesaga\.johren\.games/];
         nw.global.cookieHosts = ['www.johren.games', 'johren.games'];
         nw.global.entryUrl = 'https://www.johren.games/games/cravesagax-en/play';
         localStorage.setItem('defaultProvider', 'johrenNsfw');
@@ -154,7 +157,7 @@
         nw.global.loginRegex = /crave-saga\/?$/;
         nw.global.pageRegex = /crave-saga\/play/;
         nw.global.wrapperRegex = [/osapi\.nutaku\.com/];
-        nw.global.gameRegex = /https:\/\/nutaku-client-en\.g\.cravesaga\.johren\.games/;
+        nw.global.gameRegex = [/https:\/\/nutaku-client-en\.g\.cravesaga\.johren\.games/];
         nw.global.cookieHosts = ['www.nutaku.com', 'nutaku.com'];
         nw.global.entryUrl = 'https://www.nutaku.com/games/crave-saga/play/';
         localStorage.setItem('defaultProvider', 'nutakuCom');
@@ -166,7 +169,7 @@
         nw.global.loginRegex = /crave-saga-x\/?$/;
         nw.global.pageRegex = /crave-saga-x\/play/;
         nw.global.wrapperRegex = [/osapi\.nutaku\.com/];
-        nw.global.gameRegex = /https:\/\/nutaku-client-en\.r\.cravesaga\.johren\.games/;
+        nw.global.gameRegex = [/https:\/\/nutaku-client-en\.r\.cravesaga\.johren\.games/];
         nw.global.cookieHosts = ['www.nutaku.net', 'nutaku.net'];
         nw.global.entryUrl = 'https://www.nutaku.net/games/crave-saga-x/play/';
         localStorage.setItem('defaultProvider', 'nutakuNet');
@@ -178,7 +181,7 @@
         nw.global.loginRegex = /service\/login/;
         nw.global.pageRegex = /play\/cravesaga/;
         nw.global.wrapperRegex = [/osapi\.dmm\.com/];
-        nw.global.gameRegex = /https:\/\/gg-client-w\.crave-saga\.net/;
+        nw.global.gameRegex = [/https:\/\/gg-client-w\.crave-saga\.net/];
         nw.global.cookieHosts = ['www.dmm.com', 'dmm.com'];
         nw.global.entryUrl = 'https://pc-play.games.dmm.com/play/cravesaga/';
         localStorage.setItem('defaultProvider', 'dmm');
@@ -190,7 +193,7 @@
         nw.global.loginRegex = /service\/login/;
         nw.global.pageRegex = /play\/cravesagax/;
         nw.global.wrapperRegex = [/osapi\.dmm\.com/];
-        nw.global.gameRegex = /https:\/\/gg-client-r\.crave-saga\.net/;
+        nw.global.gameRegex = [/https:\/\/gg-client-r\.crave-saga\.net/];
         nw.global.cookieHosts = ['www.dmm.co.jp', 'dmm.co.jp'];
         nw.global.entryUrl = 'https://pc-play.games.dmm.co.jp/play/cravesagax/';
         localStorage.setItem('defaultProvider', 'fanza');

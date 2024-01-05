@@ -98,6 +98,19 @@ var process;
     chrome.tabs.update(nw.Window.get(null).cWindow.tabs[0].id, { url: url.href });
   }
 
+  function checkRegex(url, r) {
+    if (Array.isArray(r)) {
+      for (const regex of r) {
+        if (url.match(regex)) {
+          return true;
+        }
+      }
+    } else if (r) {
+      return url.match(r);
+    }
+    return false;
+  }
+
   //=============================
   // Login Page
   //=============================
@@ -125,17 +138,7 @@ var process;
       if (!anyNW?.global?.provider) return;
 
       const url = iframe.src;
-
-      if (anyNW.global.wrapperRegex) {
-        for (const regex of anyNW.global.wrapperRegex) {
-          if (url.match(regex)) {
-            return true;
-          }
-        }
-      }
-
-      if (url.match(anyNW.global.gameRegex)) return true;
-      return false;
+      return checkRegex(url, anyNW.global.wrapperRegex) || checkRegex(url, anyNW.global.gameRegex);
     }
 
     function checkFrameAndSwitch(iframe) {
@@ -698,12 +701,12 @@ var process;
       }
     }
 
-    if (url.match(anyNW.global.loginRegex)) {
+    if (checkRegex(url, anyNW.global.loginRegex)) {
       processLoginPage();
       injectBackButton();
-    } else if (url.match(anyNW.global.pageRegex)) {
+    } else if (checkRegex(url, anyNW.global.pageRegex)) {
       processWebGLPage();
-    } else if (url.match(anyNW.global.gameRegex)) {
+    } else if (checkRegex(url, anyNW.global.gameRegex)) {
       processGamePage();
     } else {
       injectBackButton();

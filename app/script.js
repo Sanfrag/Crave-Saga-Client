@@ -3,8 +3,10 @@
 var cc;
 /** @type any */
 var chrome;
-/** @type any */
-var process;
+
+const notifier = nw.global.notifier;
+const DateTime = nw.global.DateTime;
+const msgpack = nw.global.msgpack;
 
 //=============================
 // Main
@@ -13,15 +15,10 @@ var process;
   if (!process) return;
 
   const isDev = process.versions['nw-flavor'] === 'sdk';
-  const iniPath = isDev ? 'release/app/ini' : 'app/ini';
-  const fs = require('fs');
-  const ini = require(iniPath);
-
-  let config = {};
-
-  try {
-    config = ini.parse(fs.readFileSync('./config.ini', 'utf-8'));
-  } catch {}
+  // @ts-ignore
+  nw.global.iconPath = isDev ? './release/app/icon.png' : './app/icon.png';
+  // @ts-ignore
+  const config = nw.global.config;
 
   let resizing = false;
 
@@ -33,6 +30,34 @@ var process;
       label: label,
       enabled: false,
     });
+  };
+
+  const readSettingString = key => {
+    return localStorage.getItem(`csc:${key}`);
+  };
+
+  const readSettingToggle = key => {
+    return localStorage.getItem(`csc:${key}`) === 'true';
+  };
+
+  const writeSetting = (key, value) => {
+    if (value === undefined) {
+      localStorage.removeItem(`csc:${key}`);
+    } else {
+      localStorage.setItem(`csc:${key}`, value.toString());
+    }
+  };
+
+  const configToggle = (label, configKey) => {
+    const toggle = new nw.MenuItem({
+      label: label,
+      type: 'checkbox',
+      checked: readSettingToggle(configKey),
+      click: () => {
+        writeSetting(configKey, toggle.checked);
+      },
+    });
+    return toggle;
   };
 
   const checkbox = (key, label, click) => {
@@ -175,6 +200,15 @@ var process;
     try {
       if (anywindow.Grobal.SoundManager) {
         anywindow.Grobal.SoundManager.setMuteAll = () => {};
+        var originalPause = cc.game.pause;
+        // @ts-ignore
+        nw.global.pauseGame = () => {
+          originalPause.apply(cc.game);
+        };
+        // @ts-ignore
+        nw.global.resumeGame = () => {
+          cc.game.resume();
+        };
         if (cc?.game) cc.game.pause = () => {};
       } else {
         requestAnimationFrame(disableBackgroundMute);
@@ -224,7 +258,9 @@ var process;
 
     const drawAmbient = () => {
       try {
-        if (!resizing) ambientCtx.drawImage(gameCanvas, 0, 0, 512, 512);
+        if (!resizing && !document.hidden) {
+          ambientCtx.drawImage(gameCanvas, 0, 0, 512, 512);
+        }
       } catch {}
       requestAnimationFrame(drawAmbient);
     };
@@ -255,7 +291,7 @@ var process;
     let currentBrightness = 100;
     let lastTime = Date.now();
 
-    const updateBrightness = () => {
+    const brightnessAnimation = () => {
       const now = Date.now();
       const delta = now - lastTime;
       lastTime = now;
@@ -286,11 +322,405 @@ var process;
           )}%)`;
         }
       }
-      requestAnimationFrame(updateBrightness);
+      requestAnimationFrame(brightnessAnimation);
     };
 
-    updateBrightness();
+    brightnessAnimation();
   }
+
+  function notify(type, options, timeout) {
+    if (!readSettingToggle(type)) return;
+
+    const focusOnClick = (_, type) => {
+      if (type == 'activate') {
+        nw.Window.get(null).show();
+        nw.Window.get(null).focus();
+      }
+    };
+
+    if (timeout) {
+      setTimeout(() => {
+        notifier.notify(
+          {
+            ...options,
+            // @ts-ignore
+            icon: nw.global.iconPath,
+          },
+          focusOnClick
+        );
+      }, timeout);
+    } else {
+      notifier.notify(
+        {
+          ...options,
+          // @ts-ignore
+          icon: nw.global.iconPath,
+        },
+        focusOnClick
+      );
+    }
+  }
+
+  //=============================
+  // Trackers
+  //=============================
+  function autoParse(content) {
+    try {
+      if (typeof content === 'string') {
+        return JSON.parse(content);
+      } else if (typeof content === 'object') {
+        return msgpack.decode(Buffer.from(content));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return null;
+  }
+
+  // - User Master Data (for checking max stamina)
+  let userMasterData = null;
+
+  function processUserMasterData(data) {
+    try {
+      userMasterData = data;
+      if (userData.hasData) {
+        const levelData = userMasterData?.UserMain?.[userData.userLevel - 1];
+        if (levelData) {
+          userData.staminaMax = levelData.maxStamina;
+          userData.battlePointMax = levelData.maxBattlePoint;
+          userData.staminaIsFull = userData.staminaValue >= levelData.maxStamina;
+          userData.battlePointIsFull = userData.battlePointValue >= levelData.maxBattlePoint;
+          userData.hasMasterData = true;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  let referenceGameDate = null;
+  let referenceTime = null;
+  let referenceTimeDiff = null;
+
+  function parseGameDate(date) {
+    return DateTime.local(
+      parseInt(date.substr(0, 4)),
+      parseInt(date.substr(4, 2)),
+      parseInt(date.substr(6, 2)),
+      parseInt(date.substr(8, 2)),
+      parseInt(date.substr(10, 2)),
+      parseInt(date.substr(12, 2))
+    );
+  }
+
+  function systemDateUpdate(systemDate) {
+    if (systemDate) {
+      referenceGameDate = parseGameDate(systemDate);
+      referenceTime = DateTime.local();
+      referenceTimeDiff = referenceGameDate.diff(referenceTime);
+      console.log('[CSC] Updating time:');
+      console.log(`[CSC] - Game time: ${referenceGameDate.toISO()}`);
+      console.log(`[CSC] - System time: ${referenceTime.toISO()}`);
+    }
+  }
+
+  // - Time Tracker
+
+  function updateTime(data) {
+    try {
+      let systemDate = data?.systemDate;
+      systemDateUpdate(systemDate);
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+  // - stamina Tracker
+  /** @type {any} */
+  let userData = {
+    userLevel: 0,
+    staminaMax: 0,
+    battlePointMax: 0,
+
+    staminaValue: 0,
+    staminaRecoverInterval: 180,
+    staminaRecoveryDate: null,
+    staminaRemainSec: 0,
+    staminaBonus: 0,
+    staminaIsFull: false,
+
+    battlePointValue: 0,
+    battlePointRecoverInterval: 600,
+    battlePointRecoveryDate: null,
+    battlePointRemainSec: 0,
+    battlePointBonus: 0,
+    battlePointIsFull: false,
+
+    estimatedstamina: 0,
+    estimatedstaminaRemainSec: 0,
+    estimatedBattlePoint: 0,
+    estimatedBattlePointRemainSec: 0,
+
+    hasData: false,
+    hasMasterData: false,
+  };
+
+  function updateUser(data) {
+    try {
+      // Update Time
+      let user = data.user;
+
+      // Update User Level and stamina
+      if (!user) return;
+      let systemDate = user?.systemDate;
+      systemDateUpdate(systemDate);
+
+      userData.userLevel = user.level;
+
+      userData.staminaValue = user.staminaValue;
+      userData.staminaBonus = user.staminaBonus;
+      userData.staminaRecoveryDate = parseGameDate(user.staminaRecoveryDate);
+      userData.staminaRemainSec = user.staminaRemainSec;
+      userData.battlePointValue = user.battlePointValue;
+      userData.battlePointBonus = user.battlePointBonus;
+      userData.battlePointRecoveryDate = parseGameDate(user.battlePointRecoveryDate);
+      userData.battlePointRemainSec = user.battlePointRemainSec;
+      userData.hasData = true;
+
+      const levelData = userMasterData?.UserMain?.[userData.userLevel - 1];
+      if (levelData) {
+        userData.staminaMax = levelData.maxStamina;
+        userData.battlePointMax = levelData.maxBattlePoint;
+        userData.staminaIsFull = user.staminaValue >= levelData.maxStamina;
+        userData.battlePointIsFull = user.battlePointValue >= levelData.maxBattlePoint;
+        userData.hasMasterData = true;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function gameDateNow() {
+    if (!referenceTimeDiff) return null;
+    const local = DateTime.local();
+    return local.plus(referenceTimeDiff);
+  }
+
+  function localDate(gameDate) {
+    if (!referenceTimeDiff) return null;
+    return gameDate.minus(referenceTimeDiff);
+  }
+
+  // - Expeditions Tracker
+  const expeditions = {};
+  const expeditionGroups = [];
+  function updateExpeditions(data) {
+    try {
+      const gameNow = gameDateNow();
+      if (!gameNow) return;
+
+      const expeditionData = data?.expeditions;
+      if (!expeditionData) return;
+      for (var expedition of expeditionData) {
+        if (!expedition) continue;
+        const endTime = parseGameDate(expedition.endDate);
+        if (!endTime) continue;
+
+        const id = expedition.slotId;
+
+        // ignore expired just in case
+        if (endTime < gameNow || expedition.receiveDate) {
+          if (expeditions[id]) {
+            delete expeditions[id];
+            console.log(`[CSC] Expedition #${id} finished`);
+          }
+          continue;
+        }
+
+        console.log(`[CSC] Tracking expedition #${id}: ${localDate(endTime).toISO()}`);
+        expeditions[id] = endTime;
+        groupExpeditions();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function groupExpeditions() {
+    expeditionGroups.splice(0, expeditionGroups.length);
+    // group expeditions within 1 minute
+    for (const id in expeditions) {
+      const millis = expeditions[id];
+      let existingGroup = null;
+      for (const group of expeditionGroups) {
+        if (Math.abs(group.endTime - millis) < 60000) {
+          existingGroup = group;
+          break;
+        }
+      }
+      if (existingGroup) {
+        existingGroup.ids.push(id);
+        existingGroup.endTime = Math.max(existingGroup.endTime, millis);
+      } else {
+        expeditionGroups.push({ endTime: millis, ids: [id] });
+      }
+    }
+  }
+
+  function setupRoutineChecker(callback) {
+    setInterval(() => {
+      const now =
+        // @ts-ignore
+        referenceTimeDiff && nw?.global?.__debugTime
+          ? // @ts-ignore
+            DateTime.fromMillis(nw?.global?.__debugTime).plus(referenceTimeDiff)
+          : gameDateNow();
+      if (!now) return;
+
+      // Check whether any expedition is finished
+      for (const group in expeditionGroups) {
+        const groupData = expeditionGroups[group];
+        if (now > groupData.endTime) {
+          const ids = groupData.ids.map(id => `#${id}`);
+          const count = ids.length;
+          const message = count > 1 ? `Expeditions ${ids.join(',')}` : `Expedition ${ids[0]}`;
+          notify('noti:expedition', {
+            title: 'Crave Saga',
+            message: `${message} has finished`,
+            appName: 'Crave Saga',
+          });
+          for (const id of groupData.ids) {
+            delete expeditions[id];
+          }
+          groupExpeditions();
+        }
+      }
+
+      // Estimate stamina and battle point
+      if (userData.hasData && userData.hasMasterData) {
+        const staminaStartTime = userData.staminaRecoveryDate.minus({
+          seconds: userData.staminaRemainSec,
+        });
+        const staminaInterval = userData.staminaRecoverInterval;
+        const staminaDiff = now.diff(staminaStartTime, 'seconds').seconds;
+        const staminaRecoverCount = Math.floor(staminaDiff / staminaInterval);
+
+        userData.estimatedstamina = Math.min(
+          userData.staminaMax,
+          userData.staminaValue + staminaRecoverCount
+        );
+        userData.estimatedstaminaRemainSec = Math.ceil(
+          staminaInterval - (staminaDiff % staminaInterval)
+        );
+
+        const isstaminaFull = userData.estimatedstamina >= userData.staminaMax;
+
+        const battlePointStartTime = userData.battlePointRecoveryDate.minus({
+          seconds: userData.battlePointRemainSec,
+        });
+        const battlePointInterval = userData.battlePointRecoverInterval;
+        const battlePointDiff = now.diff(battlePointStartTime, 'seconds').seconds;
+        const battlePointRecoverCount = Math.floor(battlePointDiff / battlePointInterval);
+
+        userData.estimatedBattlePoint = Math.min(
+          userData.battlePointMax,
+          userData.battlePointValue + battlePointRecoverCount
+        );
+        userData.estimatedBattlePointRemainSec = Math.ceil(
+          battlePointInterval - (battlePointDiff % battlePointInterval)
+        );
+
+        const isBattlePointFull = userData.estimatedBattlePoint >= userData.battlePointMax;
+
+        const staminaString = isstaminaFull
+          ? `AP: ${userData.estimatedstamina + userData.staminaBonus}/${userData.staminaMax}`
+          : `AP: ${userData.estimatedstamina + userData.staminaBonus}/${userData.staminaMax} (${
+              userData.estimatedstaminaRemainSec
+            }s)`;
+
+        const battlePointString = isBattlePointFull
+          ? `RP: ${userData.estimatedBattlePoint + userData.battlePointBonus}/${
+              userData.battlePointMax
+            }`
+          : `RP: ${userData.estimatedBattlePoint + userData.battlePointBonus}/${
+              userData.battlePointMax
+            } (${userData.estimatedBattlePointRemainSec}s)`;
+
+        callback?.(`${staminaString} | ${battlePointString}`);
+
+        if (!userData.staminaIsFull && isstaminaFull) {
+          notify('noti:stamina', {
+            title: 'Crave Saga',
+            message: 'AP has fully recovered',
+            appName: 'Crave Saga',
+          });
+          userData.staminaIsFull = true;
+        }
+
+        if (!userData.battlePointIsFull && isBattlePointFull) {
+          notify('noti:battlepoint', {
+            title: 'Crave Saga',
+            message: 'RP has fully recovered',
+            appName: 'Crave Saga',
+          });
+          userData.battlePointIsFull = true;
+        }
+      }
+    }, 1000);
+  }
+
+  //=============================
+  // Request Process
+  //=============================
+  /** @param req {XMLHttpRequest} */
+  function processRequest(req) {
+    const url = new URL(req.responseURL);
+    if (!url.pathname.startsWith('/gg/')) return;
+
+    const pathname = url.pathname;
+    const data = autoParse(req.response);
+    if (!data) return;
+
+    if (pathname.match(/\/user\/getMasterData$/)) {
+      processUserMasterData(data);
+    } else if (pathname.match(/\/user\/getSystemDate$/)) {
+      updateTime(data);
+    } else if (pathname.match(/endBattle$/)) {
+      // Ending battles
+      setTimeout(() => {
+        notify('noti:battleEnd', {
+          title: 'Crave Saga',
+          message: 'Battle has ended',
+          appName: 'Crave Saga',
+        });
+      }, 3500);
+    }
+
+    // Update user data if there is any
+    updateUser(data);
+
+    // Update expedition data if there is any
+    updateExpeditions(data);
+  }
+
+  (function (open) {
+    XMLHttpRequest.prototype.open = function () {
+      this.addEventListener(
+        'readystatechange',
+        function () {
+          if (this.readyState == 4) {
+            try {
+              processRequest(this);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        },
+        false
+      );
+      open.apply(this, arguments);
+    };
+  })(XMLHttpRequest.prototype.open);
 
   //=============================
   // Game Page
@@ -342,6 +772,12 @@ var process;
     audioMenu.append(separator);
     audioMenu.append(muteBgmItem);
     audioMenu.append(muteSeItem);
+
+    const notificationsMenu = new nw.Menu();
+    notificationsMenu.append(configToggle('Battle end', 'noti:battleEnd'));
+    notificationsMenu.append(configToggle('Expeditions', 'noti:expedition'));
+    notificationsMenu.append(configToggle('AP full', 'noti:stamina'));
+    notificationsMenu.append(configToggle('RP full', 'noti:battlepoint'));
 
     const changeProviderItem = item(null, 'Change provider', () => {
       changeProvider();
@@ -434,25 +870,72 @@ var process;
     dataMenu.append(clearCacheItem);
     dataMenu.append(logoutItem);
 
-    menu.append(info(anyNW.global.provider));
+    const audioMenuItem = new nw.MenuItem({ label: 'Audio', submenu: audioMenu });
+    const notificationMenuItem = new nw.MenuItem({
+      label: 'Notifications',
+      submenu: notificationsMenu,
+    });
+
+    const providerMenuItem = info(anyNW.global.provider);
+    const statusMenuItem = info('Logging in...');
+
+    menu.append(providerMenuItem);
+    menu.append(statusMenuItem);
     menu.append(separator);
     menu.append(fullscreenItem);
     menu.append(blackoutItem);
     menu.append(alwaysOnTopItem);
     menu.append(screenshotItem);
     menu.append(separator);
-    menu.append(new nw.MenuItem({ label: 'Audio', submenu: audioMenu }));
+    menu.append(audioMenuItem);
+    menu.append(notificationMenuItem);
     menu.append(separator);
     menu.append(changeProviderItem);
     if (langMenuItem) menu.append(langMenuItem);
     menu.append(separator);
     menu.append(new nw.MenuItem({ label: 'Data', submenu: dataMenu }));
 
+    const showItem = item(null, 'Show', () => {
+      nw.Window.get(null).show();
+      nw.Window.get(null).focus();
+    });
+
+    const quitItem = item(null, 'Quit', () => {
+      nw.App.quit();
+    });
+
+    const trayMenu = new nw.Menu();
+
+    trayMenu.append(providerMenuItem);
+    trayMenu.append(statusMenuItem);
+    trayMenu.append(separator);
+    trayMenu.append(showItem);
+    trayMenu.append(separator);
+    trayMenu.append(audioMenuItem);
+    trayMenu.append(notificationMenuItem);
+    trayMenu.append(separator);
+    trayMenu.append(quitItem);
+
+    // Setup tray menu
+    anyNW.global.menu = trayMenu;
+    if (anyNW.global.tray) {
+      anyNW.global.tray.menu = trayMenu;
+    }
+
     win.on('enter-fullscreen', () => {
       fullscreenItem.checked = true;
     });
     win.on('restore', () => {
       fullscreenItem.checked = win.isFullscreen;
+    });
+
+    setupRoutineChecker(status => {
+      window.document.title = `Crave Saga | ${status}`;
+      statusMenuItem.label = status;
+
+      if (anyNW.global.tray) {
+        anyNW.global.tray.tooltip = `Crave Saga | ${status}`;
+      }
     });
 
     //=============================
@@ -543,7 +1026,9 @@ var process;
         toggleMute();
       } else if (ev.key === 'F12') {
         ev.preventDefault();
-        win.capturePage(screenshot);
+        screenshot();
+      } else if (ev.key === 'r' && ev.ctrlKey) {
+        nw.Window.get(null).reload();
       }
     };
 
@@ -605,7 +1090,7 @@ var process;
           return;
         }
 
-        console.log('canvas changed');
+        console.log('[CSC] Canvas Change Detected. Rescaling.');
         lastCanvasWidth = parseInt(gameCanvas.style.width);
         updateZoom();
         updateCanvas();
@@ -643,7 +1128,7 @@ var process;
         frame.style.left = '0';
         frame.style.width = '100vw';
         frame.style.height = '100vh';
-        console.log("I'm in a wrapper page");
+        console.log('[CSC] Wrapper page sanitized.');
       } else {
         setTimeout(() => {
           trySanitizeFrame();

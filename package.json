@@ -1,8 +1,11 @@
 {
   "name": "cravesaga",
   "main": "app/main.js",
-  "icon": "./app/icon.png",
+  "icons": {
+    "256": "./app/icon.png"
+  },
   "displayName": "Crave Saga",
+  "product_string": "Crave Saga",
   "inject_js_end": "app/script.js",
   "node-remote": "<all_urls>",
   "devDependencies": {
@@ -13,6 +16,11 @@
     "width": 375,
     "height": 667,
     "position": "center",
-    "icon": "app/icon.png"
+    "icon": "./app/icon.png"
+  },
+  "dependencies": {
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "luxon": "^3.4.4",
+    "node-notifier": "^10.0.1"
   }
 }

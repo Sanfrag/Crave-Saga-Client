@@ -1,12 +1,14 @@
 // @ts-check
-/** @type any */
+/** @type {any} */
 var cc;
-/** @type any */
+/** @type {any} */
 var chrome;
+/** @type {any} */
+const anyNW = nw;
 
-const notifier = nw.global.notifier;
-const DateTime = nw.global.DateTime;
-const msgpack = nw.global.msgpack;
+const notifier = anyNW.global.notifier;
+const DateTime = anyNW.global.DateTime;
+const msgpack = anyNW.global.msgpack;
 
 //=============================
 // Main
@@ -16,9 +18,9 @@ const msgpack = nw.global.msgpack;
 
   const isDev = process.versions['nw-flavor'] === 'sdk';
   // @ts-ignore
-  nw.global.iconPath = isDev ? './release/app/icon.png' : './app/icon.png';
+  anyNW.global.iconPath = isDev ? './release/app/icon.png' : './app/icon.png';
   // @ts-ignore
-  const config = nw.global.config;
+  const config = anyNW.global.config;
 
   let resizing = false;
 
@@ -26,7 +28,7 @@ const msgpack = nw.global.msgpack;
   // Helpers
   //=============================
   const info = label => {
-    return new nw.MenuItem({
+    return new anyNW.MenuItem({
       label: label,
       enabled: false,
     });
@@ -49,7 +51,7 @@ const msgpack = nw.global.msgpack;
   };
 
   const configToggle = (label, configKey) => {
-    const toggle = new nw.MenuItem({
+    const toggle = new anyNW.MenuItem({
       label: label,
       type: 'checkbox',
       checked: readSettingToggle(configKey),
@@ -62,7 +64,7 @@ const msgpack = nw.global.msgpack;
 
   const checkbox = (key, label, click) => {
     if (click) {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         type: 'checkbox',
         label: label,
         key,
@@ -70,7 +72,7 @@ const msgpack = nw.global.msgpack;
         checked: false,
       });
     } else {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         type: 'checkbox',
         key,
         label: label,
@@ -81,13 +83,13 @@ const msgpack = nw.global.msgpack;
 
   const item = (key, label, click) => {
     if (click) {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         label: label,
         key,
         click,
       });
     } else {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         label: label,
         key,
       });
@@ -96,14 +98,14 @@ const msgpack = nw.global.msgpack;
 
   const itemMod = (modifiers, key, label, click) => {
     if (click) {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         label: label,
         key,
         modifiers,
         click,
       });
     } else {
-      return new nw.MenuItem({
+      return new anyNW.MenuItem({
         label: label,
         key,
         modifiers,
@@ -112,15 +114,13 @@ const msgpack = nw.global.msgpack;
   };
 
   function changeProvider() {
-    /** @type {any} */
-    const anyNW = nw;
     const selectorUrl = anyNW.global.selector;
     // append reselect=1 search params
     const url = new URL(selectorUrl);
     url.searchParams.set('reselect', '1');
 
     // @ts-ignore
-    chrome.tabs.update(nw.Window.get(null).cWindow.tabs[0].id, { url: url.href });
+    chrome.tabs.update(anyNW.Window.get(null).cWindow.tabs[0].id, { url: url.href });
   }
 
   function checkRegex(url, r) {
@@ -158,8 +158,6 @@ const msgpack = nw.global.msgpack;
     const iframes = document.querySelectorAll('iframe');
 
     function checkFrame(iframe) {
-      /** @type {any} */
-      const anyNW = nw;
       if (!anyNW?.global?.provider) return;
 
       const url = iframe.src;
@@ -202,11 +200,11 @@ const msgpack = nw.global.msgpack;
         anywindow.Grobal.SoundManager.setMuteAll = () => {};
         var originalPause = cc.game.pause;
         // @ts-ignore
-        nw.global.pauseGame = () => {
+        anyNW.global.pauseGame = () => {
           originalPause.apply(cc.game);
         };
         // @ts-ignore
-        nw.global.resumeGame = () => {
+        anyNW.global.resumeGame = () => {
           cc.game.resume();
         };
         if (cc?.game) cc.game.pause = () => {};
@@ -333,8 +331,8 @@ const msgpack = nw.global.msgpack;
 
     const focusOnClick = (_, type) => {
       if (type == 'activate') {
-        nw.Window.get(null).show();
-        nw.Window.get(null).focus();
+        anyNW.Window.get(null).show();
+        anyNW.Window.get(null).focus();
       }
     };
 
@@ -342,9 +340,11 @@ const msgpack = nw.global.msgpack;
       setTimeout(() => {
         notifier.notify(
           {
+            title: 'Crave Saga',
             ...options,
             // @ts-ignore
-            icon: nw.global.iconPath,
+            icon: anyNW.global.iconPath,
+            appName: 'Crave Saga',
           },
           focusOnClick
         );
@@ -352,9 +352,11 @@ const msgpack = nw.global.msgpack;
     } else {
       notifier.notify(
         {
+          title: 'Crave Saga',
           ...options,
           // @ts-ignore
-          icon: nw.global.iconPath,
+          icon: anyNW.global.iconPath,
+          appName: 'Crave Saga',
         },
         focusOnClick
       );
@@ -523,6 +525,8 @@ const msgpack = nw.global.msgpack;
       if (!expeditionData) return;
       for (var expedition of expeditionData) {
         if (!expedition) continue;
+        if (!expedition.endDate) continue;
+        if (!expedition.startDate) continue;
         const endTime = parseGameDate(expedition.endDate);
         if (!endTime) continue;
 
@@ -567,8 +571,52 @@ const msgpack = nw.global.msgpack;
     }
   }
 
+  // - Raid Tracker
+  const raidData = {
+    isInRaid: false,
+    hasScore: false,
+    hp: 0,
+    score: 0,
+    currentScore: 0,
+  };
+
+  function updateRaidBattle(data) {
+    try {
+      if (data.raidStatus) {
+        raidData.hp = data.raidStatus.currentHp;
+        raidData.isInRaid = true;
+        return;
+      }
+      if (data.currentHp) {
+        raidData.hp = data.currentHp;
+        raidData.currentScore = data.score;
+        raidData.isInRaid = true;
+      } else {
+        raidData.isInRaid = false;
+        raidData.hasScore = false;
+        raidData.hp = 0;
+        raidData.score = 0;
+        raidData.currentScore = 0;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function endBattle() {
+    raidData.isInRaid = false;
+    raidData.hasScore = false;
+    raidData.hp = 0;
+    raidData.score = 0;
+    raidData.currentScore = 0;
+  }
+
   function setupRoutineChecker(callback) {
+    const statusEntries = [];
+
     setInterval(() => {
+      statusEntries.splice(0, statusEntries.length);
+
       const now =
         // @ts-ignore
         referenceTimeDiff && nw?.global?.__debugTime
@@ -585,9 +633,7 @@ const msgpack = nw.global.msgpack;
           const count = ids.length;
           const message = count > 1 ? `Expeditions ${ids.join(',')}` : `Expedition ${ids[0]}`;
           notify('noti:expedition', {
-            title: 'Crave Saga',
             message: `${message} has finished`,
-            appName: 'Crave Saga',
           });
           for (const id of groupData.ids) {
             delete expeditions[id];
@@ -646,26 +692,41 @@ const msgpack = nw.global.msgpack;
               userData.battlePointMax
             } (${userData.estimatedBattlePointRemainSec}s)`;
 
-        callback?.(`${staminaString} | ${battlePointString}`);
+        statusEntries.push(staminaString);
+        statusEntries.push(battlePointString);
 
         if (!userData.staminaIsFull && isstaminaFull) {
           notify('noti:stamina', {
-            title: 'Crave Saga',
             message: 'AP has fully recovered',
-            appName: 'Crave Saga',
           });
           userData.staminaIsFull = true;
         }
 
         if (!userData.battlePointIsFull && isBattlePointFull) {
           notify('noti:battlepoint', {
-            title: 'Crave Saga',
             message: 'RP has fully recovered',
-            appName: 'Crave Saga',
           });
           userData.battlePointIsFull = true;
         }
       }
+
+      if (raidData.isInRaid) {
+        if (raidData.currentScore != null) raidData.score = raidData.currentScore;
+
+        statusEntries.push(`Raid Boss HP: ${raidData.hp}`);
+        if (raidData.score) statusEntries.push(`Raid Damage: ${raidData.score}`);
+
+        if (!raidData.hasScore && raidData.currentScore != null) {
+          raidData.hasScore = true;
+        } else if (raidData.hasScore && raidData.currentScore == null) {
+          raidData.hasScore = false;
+          notify('noti:raidDeath', {
+            message: `Your team has been defeated in raid battle.`,
+          });
+        }
+      }
+
+      callback?.(statusEntries);
     }, 1000);
   }
 
@@ -685,7 +746,16 @@ const msgpack = nw.global.msgpack;
       processUserMasterData(data);
     } else if (pathname.match(/\/user\/getSystemDate$/)) {
       updateTime(data);
+    } else if (pathname.match(/\/raid\/updateBattle$/)) {
+      updateRaidBattle(data);
+    } else if (
+      pathname.match(/\/raid\/joinBattle$/) ||
+      pathname.match(/\/raid\/resumeBattle$/) ||
+      pathname.match(/\/raid\/appearBattle$/)
+    ) {
+      updateRaidBattle(data);
     } else if (pathname.match(/endBattle$/)) {
+      endBattle();
       // Ending battles
       setTimeout(() => {
         notify('noti:battleEnd', {
@@ -726,12 +796,9 @@ const msgpack = nw.global.msgpack;
   // Game Page
   //=============================
   function processGamePage() {
-    /** @type {any} */
-    const anyNW = nw;
-
     disableBackgroundMute();
 
-    const win = nw.Window.get(null);
+    const win = anyNW.Window.get(null);
     let mouseIsInside = true;
 
     /** @type {HTMLDivElement?} */
@@ -755,8 +822,8 @@ const msgpack = nw.global.msgpack;
     blackoutFadeAnimation(gameCanvas, aimbientCanvas);
 
     // Context menu
-    const menu = new nw.Menu();
-    const separator = new nw.MenuItem({ type: 'separator' });
+    const menu = new anyNW.Menu();
+    const separator = new anyNW.MenuItem({ type: 'separator' });
     const fullscreenItem = checkbox('f', 'Fullscreen', () => win.toggleFullscreen());
     const alwaysOnTopItem = checkbox(null, 'Always on top', () =>
       win.setAlwaysOnTop(alwaysOnTopItem.checked)
@@ -767,14 +834,15 @@ const msgpack = nw.global.msgpack;
     const muteBgmItem = checkbox(null, 'Mute BGM');
     const muteSeItem = checkbox(null, 'Mute SE');
 
-    const audioMenu = new nw.Menu();
+    const audioMenu = new anyNW.Menu();
     audioMenu.append(muteAllItem);
     audioMenu.append(separator);
     audioMenu.append(muteBgmItem);
     audioMenu.append(muteSeItem);
 
-    const notificationsMenu = new nw.Menu();
+    const notificationsMenu = new anyNW.Menu();
     notificationsMenu.append(configToggle('Battle end', 'noti:battleEnd'));
+    notificationsMenu.append(configToggle('Team death (Raid)', 'noti:raidDeath'));
     notificationsMenu.append(configToggle('Expeditions', 'noti:expedition'));
     notificationsMenu.append(configToggle('AP full', 'noti:stamina'));
     notificationsMenu.append(configToggle('RP full', 'noti:battlepoint'));
@@ -794,7 +862,7 @@ const msgpack = nw.global.msgpack;
         }
 
         const langItem = item(null, langName, () => {
-          nw.Window.get(null).window.location.href = langUrl;
+          anyNW.Window.get(null).window.location.href = langUrl;
         });
         langItems.push(langItem);
       }
@@ -803,7 +871,7 @@ const msgpack = nw.global.msgpack;
     let langMenuItem = null;
 
     if (langItems.length > 1) {
-      langMenuItem = new nw.MenuItem({ label: 'Language', submenu: new nw.Menu() });
+      langMenuItem = new anyNW.MenuItem({ label: 'Language', submenu: new anyNW.Menu() });
       for (const langItem of langItems) {
         langMenuItem.submenu.append(langItem);
       }
@@ -816,15 +884,13 @@ const msgpack = nw.global.msgpack;
     const clearCacheItem = item(null, 'Clear cache and reload', () => {
       if (confirm('Are you sure you want to clear cache?')) {
         document.write('<body style="background-color: #000;"></body>');
-        nw.App.clearCache();
+        anyNW.App.clearCache();
         win.reload();
       }
     });
     const logoutItem = item(null, 'Logout', () => {
       if (confirm('Are you sure you want to logout?')) {
         localStorage.clear();
-        /** @type {any} */
-        const anyNW = nw;
         if (!anyNW.global.cookieHosts) anyNW.global.cookieHosts = [];
 
         async function removeCookies(host) {
@@ -857,21 +923,21 @@ const msgpack = nw.global.msgpack;
             promises.push(removeCookies(host));
           }
           await Promise.all(promises);
-          nw.Window.get(null).window.location.href = anyNW.global.entryUrl;
+          anyNW.Window.get(null).window.location.href = anyNW.global.entryUrl;
         }
 
         removeAllCookiesAndReload();
       }
     });
 
-    const dataMenu = new nw.Menu();
+    const dataMenu = new anyNW.Menu();
     dataMenu.append(reloadItem);
     dataMenu.append(separator);
     dataMenu.append(clearCacheItem);
     dataMenu.append(logoutItem);
 
-    const audioMenuItem = new nw.MenuItem({ label: 'Audio', submenu: audioMenu });
-    const notificationMenuItem = new nw.MenuItem({
+    const audioMenuItem = new anyNW.MenuItem({ label: 'Audio', submenu: audioMenu });
+    const notificationMenuItem = new anyNW.MenuItem({
       label: 'Notifications',
       submenu: notificationsMenu,
     });
@@ -893,18 +959,18 @@ const msgpack = nw.global.msgpack;
     menu.append(changeProviderItem);
     if (langMenuItem) menu.append(langMenuItem);
     menu.append(separator);
-    menu.append(new nw.MenuItem({ label: 'Data', submenu: dataMenu }));
+    menu.append(new anyNW.MenuItem({ label: 'Data', submenu: dataMenu }));
 
     const showItem = item(null, 'Show', () => {
-      nw.Window.get(null).show();
-      nw.Window.get(null).focus();
+      anyNW.Window.get(null).show();
+      anyNW.Window.get(null).focus();
     });
 
     const quitItem = item(null, 'Quit', () => {
-      nw.App.quit();
+      anyNW.App.quit();
     });
 
-    const trayMenu = new nw.Menu();
+    const trayMenu = new anyNW.Menu();
 
     trayMenu.append(providerMenuItem);
     trayMenu.append(statusMenuItem);
@@ -930,11 +996,13 @@ const msgpack = nw.global.msgpack;
     });
 
     setupRoutineChecker(status => {
-      window.document.title = `Crave Saga | ${status}`;
-      statusMenuItem.label = status;
+      const statusString = status.join(' | ');
+      const window = nw.Window.get(null).window;
+      if (window && window.document) window.document.title = `Crave Saga | ${statusString}`;
+      statusMenuItem.label = statusString;
 
       if (anyNW.global.tray) {
-        anyNW.global.tray.tooltip = `Crave Saga | ${status}`;
+        anyNW.global.tray.tooltip = `Crave Saga | ${statusString}`;
       }
     });
 
@@ -1028,7 +1096,7 @@ const msgpack = nw.global.msgpack;
         ev.preventDefault();
         screenshot();
       } else if (ev.key === 'r' && ev.ctrlKey) {
-        nw.Window.get(null).reload();
+        anyNW.Window.get(null).reload();
       }
     };
 
@@ -1140,7 +1208,7 @@ const msgpack = nw.global.msgpack;
   }
 
   function injectBackButton() {
-    // Inject a big button at the bottom right corner to redirect to the entry page
+    // Inject a big button at the top left corner to redirect to the entry page
     const button = document.createElement('button');
     button.style.position = 'absolute';
     button.style.top = '5px';
@@ -1165,13 +1233,11 @@ const msgpack = nw.global.msgpack;
   function Main() {
     const keydownHandler = ev => {
       if (ev.key === 'r' && ev.ctrlKey) {
-        nw.Window.get(null).reload();
+        anyNW.Window.get(null).reload();
       }
     };
     document.body.addEventListener('keydown', keydownHandler);
 
-    /** @type {any} */
-    const anyNW = nw;
     if (!anyNW?.global?.provider) return;
 
     const url = window.location.href;

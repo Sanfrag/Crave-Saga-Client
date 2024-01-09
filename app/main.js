@@ -40,10 +40,50 @@ if (config.proxy && config.proxy.host && config.proxy.port) {
   nw.App.setProxyConfig(proxy, '');
 }
 
+/** @type {any} */
+var anyGlobal = nw.global;
+
 nw.global.config = config;
+
+/** @type {nw.Window?} */
+let theWindow = null;
+
+let hidden = false;
+
+nw.global.show = () => {
+  if (!theWindow) return;
+  theWindow.show();
+  hidden = false;
+};
+
+nw.global.hide = () => {
+  if (!theWindow) return;
+  theWindow.hide();
+  hidden = true;
+};
+
+nw.global.toggle = () => {
+  if (hidden) {
+    nw.global.show();
+  } else {
+    nw.global.hide();
+  }
+};
+
+if (config.tray) {
+  // @ts-ignore
+  anyGlobal.tray = new nw.Tray({ title: 'Crave Saga', tooltip: 'Crave Saga', icon });
+  anyGlobal.tray.on('click', () => {
+    nw.global.toggle();
+  });
+  if (anyGlobal.menu) {
+    anyGlobal.tray.menu = anyGlobal.menu;
+  }
+}
 
 nw.Window.open(selector, { title: 'Crave Saga', id: 'CraveSaga', icon }, function (win) {
   win.setMinimumSize(178, 316);
+  theWindow = win;
 
   setInterval(() => {
     if (win.window.document.title.startsWith('Crave Saga')) {
@@ -53,36 +93,11 @@ nw.Window.open(selector, { title: 'Crave Saga', id: 'CraveSaga', icon }, functio
     win.window.document.title = 'Crave Saga';
   }, 1);
 
-  /** @type {any} */
-  var anyGlobal = nw.global;
-
-  nw.Window.get(null).on('minimize', () => {
-    if (config.minimizeToTray) {
-      win.hide();
-      // @ts-ignore
-      anyGlobal.tray = new nw.Tray({ title: 'Crave Saga', tooltip: 'Crave Saga', icon });
-      anyGlobal.tray.on('click', () => {
-        win.show();
-        win.focus();
-      });
-      if (anyGlobal.menu) {
-        anyGlobal.tray.menu = anyGlobal.menu;
-      }
-    }
-  });
-
-  nw.Window.get(null).on('restore', () => {
-    if (anyGlobal.tray) {
-      anyGlobal.tray.remove();
-      anyGlobal.tray = null;
-    }
+  win.on('close', () => {
+    nw.App.quit();
   });
 });
 
 nw.App.on('open', cmdline => {
-  const win = nw.Window.get(null);
-  if (win) {
-    win.show();
-    win.focus();
-  }
+  nw.global.show();
 });

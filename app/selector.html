@@ -96,11 +96,104 @@
         filter: drop-shadow(0 0 5px #e53155);
       }
     </style>
+  </head>
+  <body>
+    <div class="banner">
+      <h1>Select a provider</h1>
+    </div>
+
+    <button id="erolabsButton" class="icon-button" onclick="erolabs()">
+      <i class="icon"><img src="./logos/erolabs.webp" /></i>
+      <span class="text">EROLABS</span>
+      <span class="type-text">(NSFW)</span>
+    </button>
+    <button class="icon-button" onclick="johrenSfw()">
+      <i class="icon"><img src="./logos/johren.svg" /></i>
+      <span class="text">Johren</span>
+      <span class="type-text">(SFW)</span>
+    </button>
+    <button class="icon-button" onclick="johrenNsfw()">
+      <i class="icon"><img src="./logos/johren_adult.svg" /></i>
+      <span class="text">Johren 18+</span>
+      <span class="type-text">(NSFW)</span>
+    </button>
+    <button class="icon-button" onclick="nutakuCom()">
+      <i class="icon">
+        <img width="120" class="img-shadow-nutaku-com align-middle" src="./logos/nutaku.svg" />
+      </i>
+      <span class="text">nutaku.com</span>
+      <span class="type-text">(SFW)</span>
+    </button>
+    <button class="icon-button" onclick="nutakuNet()">
+      <i class="icon">
+        <img width="120" class="img-shadow-nutaku-net align-middle" src="./logos/nutaku.svg" />
+      </i>
+      <span class="text">nutaku.net</span>
+      <span class="type-text">(NSFW)</span>
+    </button>
+    <button class="icon-button" onclick="dmm()">
+      <i class="icon"><img class="img-shadow" src="./logos/dmm.svg" /></i>
+      <span class="text">DMM</span>
+      <span class="type-text">(SFW)</span>
+    </button>
+    <button class="icon-button" onclick="fanza()">
+      <i class="icon"><img src="./logos/fanza.svg" /></i>
+      <span class="text">FANZA</span>
+      <span class="type-text">(NSFW)</span>
+    </button>
     <script>
       nw.global.selector = window.location.href;
+      nw.global.localStorage = localStorage;
 
       const url = new URL(window.location.href);
-      const reselect = url.searchParams.get('reselect');
+      const reselect = url.searchParams.get('reselect') || !localStorage.getItem('success');
+
+      const erolabUrls = [
+        'ero-labs.com',
+        'www.ero-labs.com',
+        'game.ero-labs.website',
+        'game.erolabs.cloud',
+        'game.erolabs.net',
+      ];
+
+      var erolabsUrl = localStorage.getItem('erolabsUrl') ?? 'ero-labs.com';
+
+      var menu = new nw.Menu();
+      for (const url of erolabUrls) {
+        const item = new nw.MenuItem({
+          type: 'checkbox',
+          label: url,
+          click: function () {
+            erolabsUrl = url;
+            localStorage.setItem('erolabsUrl', url);
+          },
+        });
+        menu.append(item);
+      }
+
+      const erolabsSelectedBuiltin = erolabUrls.indexOf(erolabsUrl) !== -1;
+
+      const customItem = new nw.MenuItem({
+        type: 'checkbox',
+        label: erolabsSelectedBuiltin ? 'Custom' : `Custom: ${erolabsUrl}`,
+        click: function () {
+          erolabsUrl = prompt('Enter custom URL', erolabsUrl);
+          if (!erolabsUrl) {
+            erolabsUrl = erolabUrls[0];
+          }
+          localStorage.setItem('erolabsUrl', erolabsUrl);
+          customItem.label = erolabsSelectedBuiltin ? 'Custom' : `Custom: ${erolabsUrl}`;
+        },
+      });
+      menu.append(customItem);
+
+      function erolabsSelector(ev) {
+        ev.preventDefault();
+        for (const item of menu.items) {
+          item.checked = item.label == erolabsUrl || item.label == `Custom: ${erolabsUrl}`;
+        }
+        menu.popup(ev.x, ev.y);
+      }
 
       function erolabs() {
         nw.global.provider = 'Crave Saga X (EROLABS)';
@@ -114,17 +207,18 @@
           {
             name: 'English',
             regex: /erolabs-client-en/,
-            url: 'https://ero-labs.com/en/webGL.html?id=47',
+            url: `https://${erolabsUrl}/en/webGL.html?id=47`,
           },
           {
             name: '简体中文',
             regex: /erolabs-client-ch/,
-            url: 'https://ero-labs.com/cn/webGL.html?id=47',
+            url: `https://${erolabsUrl}/cn/webGL.html?id=47`,
           },
         ];
-        nw.global.cookieHosts = ['ero-labs.com', 'www.ero-labs.com'];
-        nw.global.entryUrl = 'https://ero-labs.com/webGL.html?id=47';
+        nw.global.cookieHosts = [erolabsUrl];
+        nw.global.entryUrl = `https://${erolabsUrl}/webGL.html?id=47`;
         localStorage.setItem('defaultProvider', 'erolabs');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -138,6 +232,7 @@
         nw.global.entryUrl = 'https://www.johren.net/games/cravesaga-en/play';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'johrenSfw');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -151,6 +246,7 @@
         nw.global.entryUrl = 'https://www.johren.games/games/cravesagax-en/play';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'johrenNsfw');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -164,6 +260,7 @@
         nw.global.entryUrl = 'https://www.nutaku.com/games/crave-saga/play/';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'nutakuCom');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -177,6 +274,7 @@
         nw.global.entryUrl = 'https://www.nutaku.net/games/crave-saga-x/play/';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'nutakuNet');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -190,6 +288,7 @@
         nw.global.entryUrl = 'https://pc-play.games.dmm.com/play/cravesaga/';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'dmm');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -203,6 +302,7 @@
         nw.global.entryUrl = 'https://pc-play.games.dmm.co.jp/play/cravesagax/';
         nw.global.langs = null;
         localStorage.setItem('defaultProvider', 'fanza');
+        localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;
       }
 
@@ -224,73 +324,9 @@
       } else {
         localStorage.removeItem('defaultProvider');
       }
+      document
+        .querySelector('#erolabsButton')
+        .addEventListener('contextmenu', erolabsSelector, false);
     </script>
-  </head>
-  <body>
-    <div class="banner">
-      <h1>Select a provider</h1>
-    </div>
-
-    <button class="icon-button" onclick="erolabs()">
-      <i class="icon"><img src="https://www.ero-labs.com/assets/images/logo.webp" /></i>
-      <span class="text">EROLABS</span>
-      <span class="type-text">(NSFW)</span>
-    </button>
-    <button class="icon-button" onclick="johrenSfw()">
-      <i class="icon"><img src="https://www.johren.net/images/brand/type/logo.svg" /></i>
-      <span class="text">Johren</span>
-      <span class="type-text">(SFW)</span>
-    </button>
-    <button class="icon-button" onclick="johrenNsfw()">
-      <i class="icon"><img src="https://www.johren.games/images/brand/type/logo_adult.svg" /></i>
-      <span class="text">Johren 18+</span>
-      <span class="type-text">(NSFW)</span>
-    </button>
-    <button class="icon-button" onclick="nutakuCom()">
-      <i class="icon">
-        <img
-          width="28"
-          height="28"
-          class="img-shadow-nutaku-com align-middle"
-          src="https://www.nutaku.com/images/nutaku-logo-icon.svg"
-        />
-        <img
-          width="80"
-          height="22"
-          class="img-shadow-nutaku-com align-middle"
-          src="https://www.nutaku.com/images/nutaku-logo-text.svg"
-        />
-      </i>
-      <span class="text">nutaku.com</span>
-      <span class="type-text">(SFW)</span>
-    </button>
-    <button class="icon-button" onclick="nutakuNet()">
-      <i class="icon">
-        <img
-          width="28"
-          height="28"
-          class="img-shadow-nutaku-net align-middle"
-          src="https://www.nutaku.com/images/nutaku-logo-icon.svg"
-        />
-        <img
-          width="80"
-          height="22"
-          class="img-shadow-nutaku-net align-middle"
-          src="https://www.nutaku.com/images/nutaku-logo-text.svg"
-        />
-      </i>
-      <span class="text">nutaku.net</span>
-      <span class="type-text">(NSFW)</span>
-    </button>
-    <button class="icon-button" onclick="dmm()">
-      <i class="icon"><img class="img-shadow" src="https://p-smith.com/logo/dmm_com.svg" /></i>
-      <span class="text">DMM</span>
-      <span class="type-text">(SFW)</span>
-    </button>
-    <button class="icon-button" onclick="fanza()">
-      <i class="icon"><img src="https://p-smith.com/logo/fanza_r18.svg" /></i>
-      <span class="text">FANZA</span>
-      <span class="type-text">(NSFW)</span>
-    </button>
   </body>
 </html>

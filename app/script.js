@@ -4,6 +4,8 @@ var cc;
 /** @type {any} */
 var chrome;
 /** @type {any} */
+var __custom;
+/** @type {any} */
 const anyNW = nw;
 
 const notifier = anyNW.global.notifier;
@@ -331,8 +333,7 @@ const msgpack = anyNW.global.msgpack;
 
     const focusOnClick = (_, type) => {
       if (type == 'activate') {
-        anyNW.Window.get(null).show();
-        anyNW.Window.get(null).focus();
+        anyNW.global.show();
       }
     };
 
@@ -961,11 +962,6 @@ const msgpack = anyNW.global.msgpack;
     menu.append(separator);
     menu.append(new anyNW.MenuItem({ label: 'Data', submenu: dataMenu }));
 
-    const showItem = item(null, 'Show', () => {
-      anyNW.Window.get(null).show();
-      anyNW.Window.get(null).focus();
-    });
-
     const quitItem = item(null, 'Quit', () => {
       anyNW.App.quit();
     });
@@ -974,8 +970,6 @@ const msgpack = anyNW.global.msgpack;
 
     trayMenu.append(providerMenuItem);
     trayMenu.append(statusMenuItem);
-    trayMenu.append(separator);
-    trayMenu.append(showItem);
     trayMenu.append(separator);
     trayMenu.append(audioMenuItem);
     trayMenu.append(notificationMenuItem);
@@ -1180,6 +1174,73 @@ const msgpack = anyNW.global.msgpack;
       canvasChangeDetector.observe(gameCanvas, { attributes: true });
       updateZoom();
     }
+
+    const prepareEngine = async () => {
+      anyNW.global.engine = {
+        menu,
+        trayMenu,
+        gameCanvas,
+        document,
+      };
+
+      const waitForRequire = async () => {
+        return new Promise(resolve => {
+          const check = () => {
+            // @ts-ignore
+            if (typeof __require != 'function') {
+              requestAnimationFrame(check);
+              return;
+            }
+
+            // @ts-ignore
+            anyNW.global.engine.require = __require;
+            resolve(null);
+          };
+          check();
+        });
+      };
+
+      const waitForCC = async () => {
+        return new Promise(resolve => {
+          const check = () => {
+            // @ts-ignore
+            if (typeof cc != 'object') {
+              requestAnimationFrame(check);
+              return;
+            }
+
+            // @ts-ignore
+            anyNW.global.engine.cc = cc;
+            resolve(null);
+          };
+          check();
+        });
+      };
+
+      await Promise.all([waitForRequire(), waitForCC()]);
+      console.log('[CSC] Engine prepared.');
+      try {
+        // clear all custom module cache
+        const path = require('path');
+        const customScript = require.resolve('../custom');
+        const customPath = path.dirname(customScript);
+
+        for (const key in require.cache) {
+          if (key.startsWith(customPath)) {
+            delete require.cache[key];
+          }
+        }
+        // @ts-ignore
+        require('../custom');
+      } catch (e) {
+        console.log(e);
+      }
+    };
+
+    prepareEngine();
+
+    // @ts-ignore
+    nw.global.localStorage.setItem('success', 'true');
   }
 
   function processWrapperPage() {

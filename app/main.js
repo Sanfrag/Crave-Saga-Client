@@ -85,14 +85,6 @@ nw.Window.open(selector, { title: 'Crave Saga', id: 'CraveSaga', icon }, functio
   win.setMinimumSize(178, 316);
   theWindow = win;
 
-  setInterval(() => {
-    if (win.window.document.title.startsWith('Crave Saga')) {
-      return;
-    }
-    win.title = 'Crave Saga';
-    win.window.document.title = 'Crave Saga';
-  }, 1);
-
   win.on('close', () => {
     nw.App.quit();
   });

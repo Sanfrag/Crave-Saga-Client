@@ -188,6 +188,28 @@ const msgpack = anyNW.global.msgpack;
       }
     }
   }
+  //=============================
+  // Render Control
+  //=============================
+  let skipRender = false;
+  let backgroundMode = false;
+  var renderGl = null;
+
+  function stopRender() {
+    if (skipRender) return;
+    skipRender = true;
+
+    if (renderGl) {
+      renderGl.viewport(0, 0, renderGl.drawingBufferWidth, renderGl.drawingBufferHeight);
+      renderGl.clearColor(0.0, 0.0, 0.0, 1.0);
+      renderGl.clear(renderGl.COLOR_BUFFER_BIT);
+    }
+  }
+
+  function resumeRender() {
+    if (!skipRender) return;
+    skipRender = false;
+  }
 
   //=============================
   // Patches
@@ -209,6 +231,13 @@ const msgpack = anyNW.global.msgpack;
         anyNW.global.resumeGame = () => {
           cc.game.resume();
         };
+        // @ts-ignore
+        var originalRender = cc.renderer.render;
+        cc.renderer.render = function () {
+          if (!skipRender) {
+            originalRender.apply(cc.renderer, arguments);
+          }
+        };
         if (cc?.game) cc.game.pause = () => {};
       } else {
         requestAnimationFrame(disableBackgroundMute);
@@ -222,7 +251,7 @@ const msgpack = anyNW.global.msgpack;
     // Create game canvas context early to force enable preserveDrawingBuffer
     // This allows both ambient background and screenshot to work
     if (gameCanvas) {
-      gameCanvas.getContext('webgl', {
+      renderGl = gameCanvas.getContext('webgl', {
         alpha: true,
         antialias: false,
         depth: true,
@@ -258,7 +287,7 @@ const msgpack = anyNW.global.msgpack;
 
     const drawAmbient = () => {
       try {
-        if (!resizing && !document.hidden) {
+        if (!resizing && !backgroundMode && !skipRender) {
           ambientCtx.drawImage(gameCanvas, 0, 0, 512, 512);
         }
       } catch {}
@@ -292,6 +321,8 @@ const msgpack = anyNW.global.msgpack;
     let lastTime = Date.now();
 
     const brightnessAnimation = () => {
+      if (backgroundMode) return;
+
       const now = Date.now();
       const delta = now - lastTime;
       lastTime = now;
@@ -310,12 +341,20 @@ const msgpack = anyNW.global.msgpack;
       }
 
       if (gameCanvas) {
-        if (Math.abs(targetBrightness - 100) < 0.01) {
-          gameCanvas.style.filter = '';
+        if (currentBrightness < 0.1) {
+          if (gameCanvas.style.filter) {
+            gameCanvas.style.filter = '';
+          }
+          stopRender();
+        } else if (Math.abs(targetBrightness - 100) < 0.01) {
+          if (gameCanvas.style.filter) gameCanvas.style.filter = '';
           currentBrightness = 100;
+          resumeRender();
         } else {
           gameCanvas.style.filter = `brightness(${currentBrightness.toFixed(2)}%)`;
+          resumeRender();
         }
+
         if (ambientCanvas) {
           ambientCanvas.style.filter = `blur(128px) brightness(${(currentBrightness * 0.75).toFixed(
             2
@@ -380,14 +419,26 @@ const msgpack = anyNW.global.msgpack;
     return null;
   }
 
-  // - User Master Data (for checking max stamina)
-  let userMasterData = null;
+  // - Master Data (for checking max stamina)
+  const masterData = {};
 
-  function processUserMasterData(data) {
+  function processMasterData(data, url) {
     try {
-      userMasterData = data;
+      const masterDataType = url.match(/\/gg\/(.+)\/getMasterData/)?.[1];
+      if (masterDataType) {
+        masterData[masterDataType] = data;
+      }
+
+      processUserMasterData();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function processUserMasterData() {
+    try {
       if (userData.hasData) {
-        const levelData = userMasterData?.UserMain?.[userData.userLevel - 1];
+        const levelData = masterData.user?.UserMain?.[userData.userLevel - 1];
         if (levelData) {
           userData.staminaMax = levelData.maxStamina;
           userData.battlePointMax = levelData.maxBattlePoint;
@@ -490,7 +541,7 @@ const msgpack = anyNW.global.msgpack;
       userData.battlePointRemainSec = user.battlePointRemainSec;
       userData.hasData = true;
 
-      const levelData = userMasterData?.UserMain?.[userData.userLevel - 1];
+      const levelData = masterData.user?.UserMain?.[userData.userLevel - 1];
       if (levelData) {
         userData.staminaMax = levelData.maxStamina;
         userData.battlePointMax = levelData.maxBattlePoint;
@@ -737,14 +788,18 @@ const msgpack = anyNW.global.msgpack;
   /** @param req {XMLHttpRequest} */
   function processRequest(req) {
     const url = new URL(req.responseURL);
+
+    const event = new CustomEvent('responseReceived', { detail: { req } });
+    document.dispatchEvent(event);
+
     if (!url.pathname.startsWith('/gg/')) return;
 
     const pathname = url.pathname;
     const data = autoParse(req.response);
     if (!data) return;
 
-    if (pathname.match(/\/user\/getMasterData$/)) {
-      processUserMasterData(data);
+    if (pathname.match(/\/getMasterData$/)) {
+      processMasterData(data, req.responseURL);
     } else if (pathname.match(/\/user\/getSystemDate$/)) {
       updateTime(data);
     } else if (pathname.match(/\/raid\/updateBattle$/)) {
@@ -831,6 +886,7 @@ const msgpack = anyNW.global.msgpack;
     );
     const screenshotItem = item('F12', 'Screenshot to clipboard');
     const blackoutItem = checkbox('b', 'Blackout');
+    const lowFrameRateItem = checkbox(null, '15 FPS mode');
     const muteAllItem = checkbox('m', 'Mute All');
     const muteBgmItem = checkbox(null, 'Mute BGM');
     const muteSeItem = checkbox(null, 'Mute SE');
@@ -951,6 +1007,7 @@ const msgpack = anyNW.global.msgpack;
     menu.append(separator);
     menu.append(fullscreenItem);
     menu.append(blackoutItem);
+    menu.append(lowFrameRateItem);
     menu.append(alwaysOnTopItem);
     menu.append(screenshotItem);
     menu.append(separator);
@@ -1049,6 +1106,16 @@ const msgpack = anyNW.global.msgpack;
     };
     blackoutItem.click = blackout;
 
+    const toggleFramerate = () => {
+      if (cc && cc.game) {
+        const isLowFrameRate = lowFrameRateItem.checked;
+        cc.game.setFrameRate(isLowFrameRate ? 15 : 60);
+      } else {
+        lowFrameRateItem.checked = false;
+      }
+    };
+    lowFrameRateItem.click = toggleFramerate;
+
     const screenshot = () => {
       if (gameCanvas)
         gameCanvas.toBlob(function (blob) {
@@ -1076,6 +1143,15 @@ const msgpack = anyNW.global.msgpack;
     document.body.addEventListener('mouseleave', () => {
       mouseIsInside = false;
       if (gameCanvas && blackoutItem.checked) setBrightness(0, 350);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      backgroundMode = document.visibilityState === 'hidden';
+      if (backgroundMode) {
+        stopRender();
+      } else {
+        resumeRender();
+      }
     });
 
     const keydownHandler = ev => {
@@ -1181,6 +1257,7 @@ const msgpack = anyNW.global.msgpack;
         trayMenu,
         gameCanvas,
         document,
+        masterData,
       };
 
       const waitForRequire = async () => {

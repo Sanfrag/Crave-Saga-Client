@@ -192,7 +192,9 @@ const msgpack = anyNW.global.msgpack;
   // Render Control
   //=============================
   let skipRender = false;
+  let lowFrameRateMode = 0;
   let backgroundMode = false;
+  let lastRenderTime = 0;
   var renderGl = null;
 
   function stopRender() {
@@ -234,9 +236,18 @@ const msgpack = anyNW.global.msgpack;
         // @ts-ignore
         var originalRender = cc.renderer.render;
         cc.renderer.render = function () {
-          if (!skipRender) {
+          if (skipRender) return;
+
+          if (!lowFrameRateMode) {
+            // use original render if not in low frame rate mode
             originalRender.apply(cc.renderer, arguments);
+            return;
           }
+
+          // otherwise lower the render rate
+          if (Date.now() - lastRenderTime < lowFrameRateMode) return;
+          lastRenderTime = Date.now();
+          originalRender.apply(cc.renderer, arguments);
         };
         if (cc?.game) cc.game.pause = () => {};
       } else {
@@ -886,7 +897,19 @@ const msgpack = anyNW.global.msgpack;
     );
     const screenshotItem = item('F12', 'Screenshot to clipboard');
     const blackoutItem = checkbox('b', 'Blackout');
-    const lowFrameRateItem = checkbox(null, '15 FPS mode');
+
+    const frameRateMenu = new anyNW.Menu();
+    const fpsOriginalItem = checkbox(null, 'Original');
+    const fps30Item = checkbox(null, '30 FPS');
+    const fps15Item = checkbox(null, '15 FPS');
+    const fps5Item = checkbox(null, '5 FPS');
+    fpsOriginalItem.checked = true;
+    frameRateMenu.append(fpsOriginalItem);
+    frameRateMenu.append(fps30Item);
+    frameRateMenu.append(fps15Item);
+    frameRateMenu.append(fps5Item);
+    const frameRateMenuItems = [fpsOriginalItem, fps30Item, fps15Item, fps5Item];
+
     const muteAllItem = checkbox('m', 'Mute All');
     const muteBgmItem = checkbox(null, 'Mute BGM');
     const muteSeItem = checkbox(null, 'Mute SE');
@@ -993,6 +1016,7 @@ const msgpack = anyNW.global.msgpack;
     dataMenu.append(clearCacheItem);
     dataMenu.append(logoutItem);
 
+    const frameRateItem = new anyNW.MenuItem({ label: 'Frame rate', submenu: frameRateMenu });
     const audioMenuItem = new anyNW.MenuItem({ label: 'Audio', submenu: audioMenu });
     const notificationMenuItem = new anyNW.MenuItem({
       label: 'Notifications',
@@ -1007,7 +1031,7 @@ const msgpack = anyNW.global.msgpack;
     menu.append(separator);
     menu.append(fullscreenItem);
     menu.append(blackoutItem);
-    menu.append(lowFrameRateItem);
+    menu.append(frameRateItem);
     menu.append(alwaysOnTopItem);
     menu.append(screenshotItem);
     menu.append(separator);
@@ -1106,15 +1130,18 @@ const msgpack = anyNW.global.msgpack;
     };
     blackoutItem.click = blackout;
 
-    const toggleFramerate = () => {
-      if (cc && cc.game) {
-        const isLowFrameRate = lowFrameRateItem.checked;
-        cc.game.setFrameRate(isLowFrameRate ? 15 : 60);
-      } else {
-        lowFrameRateItem.checked = false;
+    const toggleFramerate = (selected, fps) => () => {
+      for (var item of frameRateMenuItems) {
+        item.checked = false;
       }
+      selected.checked = true;
+      if (fps == 0) lowFrameRateMode = 0;
+      else lowFrameRateMode = 1000 / fps;
     };
-    lowFrameRateItem.click = toggleFramerate;
+    fpsOriginalItem.click = toggleFramerate(fpsOriginalItem, 0);
+    fps30Item.click = toggleFramerate(fps30Item, 30);
+    fps15Item.click = toggleFramerate(fps15Item, 15);
+    fps5Item.click = toggleFramerate(fps5Item, 5);
 
     const screenshot = () => {
       if (gameCanvas)

@@ -18,15 +18,15 @@ function log() {
 
 // create cache folder if it doesn't exist
 if (!fs.existsSync(cacheFolder)) {
-  fs.mkdirSync(cacheFolder);
+  fs.mkdirSync(cacheFolder, { recursive: true });
 }
 
 if (!fs.existsSync(resourceCacheFolder)) {
-  fs.mkdirSync(resourceCacheFolder);
+  fs.mkdirSync(resourceCacheFolder, { recursive: true });
 }
 
 if (!fs.existsSync(clientCacheFolder)) {
-  fs.mkdirSync(clientCacheFolder);
+  fs.mkdirSync(clientCacheFolder, { recursive: true });
 }
 
 nw.global.cacheLoader = true;
@@ -57,6 +57,10 @@ nw.global.resetResourceCache = () => {
 
 let server = null;
 
+function convertToValidFilename(string) {
+  return string.replace(/[\/|\\:*?"<>]/g, '');
+}
+
 module.exports = {
   setup: () => {
     const http = require('http');
@@ -79,9 +83,13 @@ module.exports = {
           resourceHost = nw.global.clientHost ? new URL(nw.global.clientHost) : null;
           url = url?.substring(7);
           clientAsset = true;
-          targetCacheFolder = path.join(clientCacheFolder, nw.global.clientVersion);
+          targetCacheFolder = path.join(
+            clientCacheFolder,
+            convertToValidFilename(resourceHost?.host),
+            nw.global.clientVersion
+          );
           if (!fs.existsSync(targetCacheFolder)) {
-            fs.mkdirSync(targetCacheFolder);
+            fs.mkdirSync(targetCacheFolder, { recursive: true });
           }
         }
 

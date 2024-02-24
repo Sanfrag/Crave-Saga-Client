@@ -1,5 +1,4 @@
 // @ts-check
-
 const isDev = process.versions['nw-flavor'] === 'sdk';
 const iniPath = isDev ? 'release/app/ini' : 'app/ini';
 const fs = require('fs');
@@ -24,20 +23,40 @@ try {
   config = ini.parse(fs.readFileSync('./config.ini', 'utf-8'));
 } catch {}
 
-if (config.proxy && config.proxy.host && config.proxy.port) {
-  let proxy = `${config.proxy.host}:${config.proxy.port}`;
+let cache = null;
+
+if (!config.nocache) {
+  const cachePath = isDev ? 'release/app/cache' : 'app/cache';
+  cache = require(cachePath);
+}
+
+let proxyUrl = null;
+let proxyHost = config.proxy?.host;
+let proxyPort = config.proxy?.port;
+
+if (proxyHost && proxyPort) {
+  proxyUrl = `${proxyHost}:${proxyPort}`;
   if (config.proxy.username) {
     const username = encodeURIComponent(config.proxy.username);
-    let userPrefix = username;
+    let auth = username;
 
     if (config.proxy.password) {
       const password = encodeURIComponent(config.proxy.password);
-      userPrefix = `${username}:${password}`;
+      auth = `${username}:${password}`;
     }
 
-    proxy = `${userPrefix}@${proxy}`;
+    proxyUrl = `${auth}@${proxyUrl}`;
   }
-  nw.App.setProxyConfig(proxy, '');
+  nw.App.setProxyConfig(proxyUrl, '');
+}
+
+if (cache) {
+  if (proxyUrl) {
+    const httpProxy = `http://${proxyUrl}`;
+    process.env.HTTP_PROXY = httpProxy;
+    process.env.HTTPS_PROXY = httpProxy;
+  }
+  cache.setup();
 }
 
 /** @type {any} */
@@ -86,6 +105,9 @@ nw.Window.open(selector, { title: 'Crave Saga', id: 'CraveSaga', icon }, functio
   theWindow = win;
 
   win.on('close', () => {
+    if (cache) {
+      cache.dispose();
+    }
     nw.App.quit();
   });
 });

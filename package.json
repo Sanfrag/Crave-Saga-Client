@@ -20,7 +20,10 @@
   },
   "dependencies": {
     "@msgpack/msgpack": "^3.0.0-beta2",
+    "decompress-response": "^7.0.0",
     "luxon": "^3.4.4",
-    "node-notifier": "^10.0.1"
+    "mime-types": "^2.1.35",
+    "node-notifier": "^10.0.1",
+    "proxy-agent": "^6.4.0"
   }
 }

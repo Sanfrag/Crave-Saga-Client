@@ -798,6 +798,7 @@ const msgpack = anyNW.global.msgpack;
   //=============================
   /** @param req {XMLHttpRequest} */
   function processRequest(req) {
+    if (!req.responseURL) return;
     const url = new URL(req.responseURL);
 
     const event = new CustomEvent('responseReceived', { detail: { req } });
@@ -1322,7 +1323,7 @@ const msgpack = anyNW.global.msgpack;
       };
 
       await Promise.all([waitForRequire(), waitForCC()]);
-      console.log('[CSC] Engine prepared.');
+
       try {
         // clear all custom module cache
         const path = require('path');
@@ -1339,12 +1340,218 @@ const msgpack = anyNW.global.msgpack;
       } catch (e) {
         console.log(e);
       }
+
+      console.log('[CSC] Engine prepared.');
     };
 
     prepareEngine();
 
     // @ts-ignore
     nw.global.localStorage.setItem('success', 'true');
+
+    if (nw.global.cacheLoader) {
+      const prepareCacheLoader = async () => {
+        const waitForClientLoader = async () => {
+          return new Promise(resolve => {
+            const check = () => {
+              // @ts-ignore
+              if (typeof __require != 'function' || typeof cc != 'object') {
+                setTimeout(check, 1);
+                return;
+              }
+
+              const version = __require('Singleton')?.Environment?.getWebClientVersion();
+              if (!version) {
+                setTimeout(check, 1);
+                return;
+              }
+
+              anyNW.global.clientVersion = version;
+              anyNW.global.clientHost = `${window.location.protocol}//${window.location.host}/`;
+              const pathname = window.location.pathname;
+              const path = pathname.substring(0, pathname.lastIndexOf('/')) + '/';
+              // setup transformer
+              const originalLoad = cc.assetManager.packManager.load;
+              const newHost = `http://localhost:${nw.global.resourceProxyPort}/`;
+              cc.assetManager.packManager.load = function (t) {
+                if (!t || !t.url) return originalLoad.apply(this, arguments);
+                if (t.url.startsWith('http')) return originalLoad.apply(this, arguments);
+                t.url = `${newHost}client${path}${t.url}`;
+                return originalLoad.apply(this, arguments);
+              };
+              resolve(null);
+            };
+            check();
+          });
+        };
+
+        const waitForAssetLoader = async () => {
+          return new Promise(resolve => {
+            const check = () => {
+              const assetLoader = __require('Singleton')?.assetLoader;
+              const host = assetLoader?._host;
+
+              // @ts-ignore
+              if (!nw.global.resourceProxyPort || !host) {
+                setTimeout(check, 1);
+                return;
+              }
+
+              // Setup resource cache
+              // @ts-ignore
+              anyNW.global.resourceHost = host;
+              const newHost = `http://localhost:${nw.global.resourceProxyPort}/`;
+              console.log(`Caching asset server ${host} on port ${nw.global.resourceProxyPort}`);
+              assetLoader._host = newHost;
+              const hostPath = `${newHost}resources/`;
+              assetLoader._hostUrl = assetLoader._hostUrl.replace(host, hostPath);
+              assetLoader._loader._hostUrl = assetLoader._loader._hostUrl.replace(host, hostPath);
+              resolve(null);
+            };
+            check();
+          });
+        };
+
+        const waitForManifest = async () => {
+          return new Promise(resolve => {
+            const check = () => {
+              const assetLoader = __require('Singleton')?.assetLoader;
+              const manifest = assetLoader?._manifest?._data?._data;
+
+              // @ts-ignore
+              if (!manifest) {
+                setTimeout(check, 1);
+                return;
+              }
+
+              // @ts-ignore
+              anyNW.global.resourceManifest = manifest;
+
+              // inject a small window at the top right corner to show the download progress
+              const div = document.createElement('div');
+              div.style.position = 'absolute';
+              div.style.top = '0';
+              div.style.right = '0';
+              div.style.width = '200px';
+              div.style.height = '32px';
+              div.style.pointerEvents = 'none';
+              div.style.backgroundColor = '#000000cc';
+              div.style.color = '#fff';
+              div.style.fontSize = '12px';
+              div.style.padding = '8px';
+              div.style.zIndex = '100000';
+              div.style.display = 'none';
+
+              // blue progress bar with a line of text at the bottom
+              const progress = document.createElement('div');
+              progress.style.width = '0%';
+              progress.style.height = '8px';
+              progress.style.backgroundColor = '#00f';
+              div.appendChild(progress);
+              const text = document.createElement('div');
+              text.style.width = '100%';
+              text.style.height = '16px';
+              text.style.textAlign = 'center';
+              text.style.color = '#fff';
+              text.style.marginTop = '4px';
+              div.appendChild(text);
+
+              document.body.appendChild(div);
+
+              // Write a async worker queue that uses four fetches max at the same time
+              // download all assets
+              let downloaded = 0;
+              let total = 0;
+              let downloading = false;
+
+              const maxFetches = 3;
+              const queue = [];
+              let running = 0;
+              const next = () => {
+                if (running >= maxFetches) return;
+                const task = queue.shift();
+                if (task) {
+                  running++;
+                  task().then(() => {
+                    downloaded++;
+                    text.textContent = `Downloading ${downloaded}/${total}`;
+                    progress.style.width = `${(downloaded / total) * 100}%`;
+                    running--;
+                    next();
+                  });
+                }
+              };
+
+              const separator = new anyNW.MenuItem({ type: 'separator' });
+              const cacheMenu = new anyNW.Menu();
+              cacheMenu.append(
+                item(null, 'Full Download', async () => {
+                  if (downloading) return;
+                  downloading = true;
+
+                  // collect all assets
+                  const assets = [];
+                  const manifestAssets = manifest.assets;
+                  for (const key in manifestAssets) {
+                    try {
+                      assets.push(assetLoader.getAssetUrl(key));
+                    } catch (e) {}
+                  }
+
+                  console.log(`Downloading ${assets.length} assets`);
+
+                  total = assets.length;
+
+                  div.style.display = 'block';
+                  text.textContent = `Downloading ${downloaded}/${total}`;
+                  progress.style.width = `${(downloaded / total) * 100}%`;
+
+                  try {
+                    for (const asset of assets) {
+                      try {
+                        // await fetch(url, { credentials: 'include' });
+                        // make fetch use queue
+                        queue.push(() => fetch(asset, { credentials: 'include' }));
+                        next();
+                      } catch (e) {}
+                    }
+                  } catch (e) {}
+
+                  // wait for all downloads to finish
+                  while (downloaded < total) {
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                  }
+
+                  div.style.display = 'none';
+                  text.textContent = '';
+                  downloading = false;
+                })
+              );
+              menu.append(separator);
+              menu.append(new anyNW.MenuItem({ label: 'Download', submenu: cacheMenu }));
+
+              console.log(`Resource manifest loaded`);
+              resolve(null);
+            };
+            check();
+          });
+        };
+
+        // close previous caching connections
+        nw.global.resetResourceCache();
+
+        // setup client cache
+        await waitForClientLoader();
+
+        // setup resource cache
+        await waitForAssetLoader();
+
+        // setup manifest
+        await waitForManifest();
+      };
+
+      prepareCacheLoader();
+    }
   }
 
   function processWrapperPage() {

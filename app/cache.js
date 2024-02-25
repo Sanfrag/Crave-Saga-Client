@@ -123,16 +123,21 @@ module.exports = {
           res.writeHead(200, { 'content-type': contentType, 'transfer-encoding': 'chunked' });
           const fileStream = fs.createReadStream(filePath);
           fileStream.pipe(res);
-          fileStream.on('error', () => {
+          fileStream.on('error', e => {
+            console.error(e);
             res.end();
           });
 
-          req.on('error', () => {});
+          req.on('error', e => {
+            console.error(e);
+          });
 
           res.on('close', () => {
             fileStream.destroy();
           });
-          res.on('error', () => {});
+          res.on('error', e => {
+            console.error(e);
+          });
           return;
         }
 
@@ -141,7 +146,10 @@ module.exports = {
             backend_res = decompressResponse(backend_res);
 
             delete backend_res.headers['content-length'];
-            backend_res.headers['transfer-encoding'] = 'chunked';
+            delete backend_res.headers['transfer-encoding'];
+            backend_res.headers['access-control-allow-origin'] = '*';
+            backend_res.headers['access-control-allow-credentials'] = 'true';
+            backend_res.headers['access-control-allow-methods'] = '*';
 
             // res.writeHead(backend_res.statusCode, backend_res.headers);
 
@@ -153,7 +161,8 @@ module.exports = {
             }
             backend_res.pipe(res);
 
-            backend_res.on('error', () => {
+            backend_res.on('error', e => {
+              console.error(e);
               res.end();
               fileStream?.destroy();
             });
@@ -166,7 +175,8 @@ module.exports = {
               finishWriteStream(tmpFilePath);
             });
 
-            fileStream?.on('error', () => {
+            fileStream?.on('error', e => {
+              console.error(e);
               res.end();
             });
           } catch (e) {
@@ -174,13 +184,18 @@ module.exports = {
           }
         });
 
-        backend_req.on('error', () => {});
+        backend_req.on('error', e => {
+          console.error(e);
+        });
         req.pipe(backend_req);
-        req.on('error', () => {});
+        req.on('error', e => {
+          console.error(e);
+        });
         res.on('close', () => {
           backend_req.destroy();
         });
-        res.on('error', () => {
+        res.on('error', e => {
+          console.error(e);
           backend_req.destroy();
         });
       } catch (e) {

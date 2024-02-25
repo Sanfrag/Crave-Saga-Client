@@ -190,12 +190,12 @@ module.exports = {
         req.pipe(backend_req);
         req.on('error', e => {
           console.error(e);
+          backend_req.destroy();
         });
         res.on('close', () => {
           backend_req.destroy();
         });
         res.on('error', e => {
-          console.error(e);
           backend_req.destroy();
         });
       } catch (e) {

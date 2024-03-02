@@ -5,7 +5,7 @@
     "256": "./app/icon.png"
   },
   "displayName": "Crave Saga",
-  "chromium-args": "--enable-logging=stderr --disable-web-security",
+  "chromium-args": "--enable-logging=stderr --disable-web-security --disable-background-timer-throttling",
   "product_string": "Crave Saga",
   "inject_js_end": "app/script.js",
   "node-remote": "<all_urls>",

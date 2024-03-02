@@ -864,6 +864,21 @@ const msgpack = anyNW.global.msgpack;
   // Game Page
   //=============================
   function processGamePage() {
+    const ogWorker = Worker;
+
+    // Disable bgWorker since we disabled background throttling. so we use the custom background runner
+    // @ts-ignore
+    Worker = class {
+      postMessage() {}
+      terminate() {}
+    };
+
+    setInterval(() => {
+      if (backgroundMode) {
+        cc?.game?.step?.();
+      }
+    }, 16);
+
     disableBackgroundMute();
 
     const win = anyNW.Window.get(null);

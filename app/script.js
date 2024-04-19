@@ -1303,6 +1303,23 @@ const msgpack = anyNW.global.msgpack;
         masterData,
       };
 
+      const waitForEngine = async () => {
+        return new Promise(resolve => {
+          const check = () => {
+            // Extra check for engine
+            try {
+              __require('Singleton');
+              resolve(null);
+            } catch (e) {
+              setTimeout(check, 1);
+              return;
+            }
+          };
+
+          check();
+        });
+      };
+
       const waitForRequire = async () => {
         return new Promise(resolve => {
           const check = () => {
@@ -1336,6 +1353,8 @@ const msgpack = anyNW.global.msgpack;
           check();
         });
       };
+
+      await waitForEngine();
 
       await Promise.all([waitForRequire(), waitForCC()]);
 
@@ -1371,6 +1390,13 @@ const msgpack = anyNW.global.msgpack;
             const check = () => {
               // @ts-ignore
               if (typeof __require != 'function' || typeof cc != 'object') {
+                setTimeout(check, 1);
+                return;
+              }
+
+              try {
+                __require('Singleton');
+              } catch (e) {
                 setTimeout(check, 1);
                 return;
               }

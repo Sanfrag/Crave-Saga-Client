@@ -157,7 +157,6 @@ const msgpack = anyNW.global.msgpack;
   //=============================
   function processWebGLPage() {
     // find a iframe element and directly switch to it, effectively strip the outer frame
-    const iframes = document.querySelectorAll('iframe');
 
     function checkFrame(iframe) {
       if (!anyNW?.global?.provider) return;
@@ -174,19 +173,31 @@ const msgpack = anyNW.global.msgpack;
       }
     }
 
-    for (const iframe of iframes) {
-      if (iframe) {
-        iframe.onload = () => {
-          checkFrameAndSwitch(iframe);
-        };
+    let time = Date.now();
 
-        // @ts-ignore
-        var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        if (iframeDoc.readyState == 'complete') {
-          checkFrameAndSwitch(iframe);
+    function trySwitchFrame() {
+      const iframes = document.querySelectorAll('iframe');
+      for (const iframe of iframes) {
+        if (iframe) {
+          iframe.onload = () => {
+            checkFrameAndSwitch(iframe);
+          };
+
+          // @ts-ignore
+          var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+          if (iframeDoc.readyState == 'complete') {
+            checkFrameAndSwitch(iframe);
+          }
         }
       }
+      
+      // try for 5 seconds then give up
+      if (Date.now() - time > 5000) return;
+      console.log('Trying to switch frame')
+      requestAnimationFrame(trySwitchFrame);
     }
+
+    trySwitchFrame();
   }
   //=============================
   // Render Control
@@ -951,11 +962,7 @@ const msgpack = anyNW.global.msgpack;
     if (anyNW.global.langs) {
       for (const lang of anyNW.global.langs) {
         const langName = lang.name;
-        const langRegex = lang.regex;
         const langUrl = lang.url;
-        if (window.location.href.match(langRegex)) {
-          continue;
-        }
 
         const langItem = item(null, langName, () => {
           anyNW.Window.get(null).window.location.href = langUrl;

@@ -149,8 +149,8 @@
       const reselect = url.searchParams.get('reselect') || !localStorage.getItem('success');
 
       const erolabUrls = [
-        'ero-labs.com',
         'www.ero-labs.com',
+        'game.ero-labs.shop',
         'game.ero-labs.website',
         'game.erolabs.cloud',
         'game.erolabs.net',
@@ -198,7 +198,7 @@
       function erolabs() {
         nw.global.provider = 'Crave Saga X (EROLABS)';
         nw.global.loginRegex = /login\.html/;
-        nw.global.pageRegex = /webGL\.html\?id=47/;
+        nw.global.pageRegex = /cloud_game.html\?id=47/;
         nw.global.gameRegex = [
           /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/,
           /\.cloudfront\.net/,
@@ -206,22 +206,19 @@
         nw.global.langs = [
           {
             name: 'English',
-            regex: /erolabs-client-en/,
-            url: `https://${erolabsUrl}/en/webGL.html?id=47`,
+            url: `https://${erolabsUrl}/en/cloud_game.html?id=47&connect_type=1&connection_id=30`,
           },
           {
             name: '简体中文',
-            regex: /erolabs-client-ch/,
-            url: `https://${erolabsUrl}/cn/webGL.html?id=47`,
+            url: `https://${erolabsUrl}/cn/cloud_game.html?id=47&connect_type=1&connection_id=29`,
           },
           {
             name: '繁體中文',
-            regex: /erolabs-client-zh/,
-            url: `https://${erolabsUrl}/zh/webGL.html?id=47`,
+            url: `https://${erolabsUrl}/zh/cloud_game.html?id=47&connect_type=1&connection_id=28`,
           },
         ];
         nw.global.cookieHosts = [erolabsUrl];
-        nw.global.entryUrl = `https://${erolabsUrl}/webGL.html?id=47`;
+        nw.global.entryUrl = `https://${erolabsUrl}/cloud_game.html?id=47&connect_type=1&connection_id=29`;
         localStorage.setItem('defaultProvider', 'erolabs');
         localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;

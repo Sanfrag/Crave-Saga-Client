@@ -201,24 +201,24 @@
         nw.global.pageRegex = /cloud_game.html\?id=47/;
         nw.global.gameRegex = [
           /https:\/\/erolabs-client-(?:ch|en)\.r\.cravesaga\.johren\.games/,
-          /\.cloudfront\.net/,
+          /\.cloudfront\.net.*\?token=.+/,
         ];
         nw.global.langs = [
           {
             name: 'English',
-            url: `https://${erolabsUrl}/en/cloud_game.html?id=47&connect_type=1&connection_id=30`,
+            url: `https://${erolabsUrl}/en/game.html?id=47`,
           },
           {
             name: '简体中文',
-            url: `https://${erolabsUrl}/cn/cloud_game.html?id=47&connect_type=1&connection_id=29`,
+            url: `https://${erolabsUrl}/cn/game.html?id=47`,
           },
           {
             name: '繁體中文',
-            url: `https://${erolabsUrl}/zh/cloud_game.html?id=47&connect_type=1&connection_id=28`,
+            url: `https://${erolabsUrl}/zh/game.html?id=47`,
           },
         ];
         nw.global.cookieHosts = [erolabsUrl];
-        nw.global.entryUrl = `https://${erolabsUrl}/cloud_game.html?id=47&connect_type=1&connection_id=29`;
+        nw.global.entryUrl = `https://${erolabsUrl}/game.html?id=47`;
         localStorage.setItem('defaultProvider', 'erolabs');
         localStorage.removeItem('success');
         window.location.href = nw.global.entryUrl;

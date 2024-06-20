@@ -190,10 +190,10 @@ const msgpack = anyNW.global.msgpack;
           }
         }
       }
-      
+
       // try for 5 seconds then give up
       if (Date.now() - time > 5000) return;
-      console.log('Trying to switch frame')
+      console.log('Trying to switch frame');
       requestAnimationFrame(trySwitchFrame);
     }
 
@@ -877,6 +877,31 @@ const msgpack = anyNW.global.msgpack;
   function processGamePage() {
     const ogWorker = Worker;
 
+    const autoLongPress = mousePosition => {
+      const scene = cc.director.getScene();
+      if (!scene) return;
+      const recursive = node => {
+        if (node.getBoundingBoxToWorld().contains(mousePosition)) {
+          for (const component of node._components) {
+            for (const key of Object.keys(component)) {
+              if (
+                key.startsWith('_') &&
+                key.toLowerCase().indexOf('long') >= 0 &&
+                typeof component[key] === 'function'
+              ) {
+                component[key].apply(component);
+                return;
+              }
+            }
+          }
+        }
+        for (const child of node._children) {
+          recursive(child);
+        }
+      };
+      recursive(scene);
+    };
+
     // Disable bgWorker since we disabled background throttling. so we use the custom background runner
     // @ts-ignore
     Worker = class {
@@ -1181,7 +1206,40 @@ const msgpack = anyNW.global.msgpack;
     //=============================
     document.body.addEventListener('contextmenu', ev => {
       ev.preventDefault();
-      menu.popup(ev.x, ev.y);
+
+      if (!gameCanvas || ev.ctrlKey) {
+        menu.popup(ev.x, ev.y);
+        return false;
+      }
+
+      const rect = gameCanvas.getClientRects()[0];
+      const visibleRect = cc.view._visibleRect;
+      const mousePosition = {
+        x: ((ev.clientX - rect.left) / rect.width) * visibleRect.width,
+        y: ((rect.height - (ev.clientY - rect.top)) / rect.height) * visibleRect.height,
+      };
+
+      if (
+        mousePosition.x < 0 ||
+        mousePosition.y < 0 ||
+        mousePosition.x >= rect.width ||
+        mousePosition.y >= rect.height
+      ) {
+        menu.popup(ev.x, ev.y);
+        return false;
+      }
+
+      if (
+        mousePosition.x >= rect.width - 64 &&
+        mousePosition.x <= rect.width &&
+        mousePosition.y >= rect.height - 64 &&
+        mousePosition.y <= rect.height
+      ) {
+        menu.popup(ev.x, ev.y);
+        return false;
+      }
+
+      autoLongPress(mousePosition);
       return false;
     });
 
@@ -1216,6 +1274,9 @@ const msgpack = anyNW.global.msgpack;
         ev.preventDefault();
         screenshot();
       } else if (ev.key === 'r' && ev.ctrlKey) {
+        anyNW.Window.get(null).reload();
+      } else if (ev.key === 'R' && ev.ctrlKey) {
+        anyNW.App.clearCache();
         anyNW.Window.get(null).reload();
       }
     };
@@ -1462,6 +1523,8 @@ const msgpack = anyNW.global.msgpack;
 
         const waitForManifest = async () => {
           return new Promise(resolve => {
+            const version = __require('Singleton')?.Environment?.getWebClientVersion();
+
             const check = () => {
               const assetLoader = __require('Singleton')?.assetLoader;
               const manifest = assetLoader?._manifest?._data?._data;
@@ -1531,9 +1594,10 @@ const msgpack = anyNW.global.msgpack;
               };
 
               const separator = new anyNW.MenuItem({ type: 'separator' });
+
               const cacheMenu = new anyNW.Menu();
               cacheMenu.append(
-                item(null, 'Full Download', async () => {
+                item(null, 'Download Resources', async () => {
                   if (downloading) return;
                   downloading = true;
 
@@ -1570,6 +1634,80 @@ const msgpack = anyNW.global.msgpack;
                     await new Promise(resolve => requestAnimationFrame(resolve));
                   }
 
+                  downloaded = 0;
+                  div.style.display = 'none';
+                  text.textContent = '';
+                  downloading = false;
+                })
+              );
+
+              cacheMenu.append(
+                item(null, `Download Client v${version}`, async () => {
+                  if (downloading) return;
+                  downloading = true;
+
+                  // collect all client bundles
+
+                  const pathname = window.location.pathname;
+                  const path = pathname.substring(0, pathname.lastIndexOf('/')) + '/';
+                  const newHost = `http://localhost:${nw.global.resourceProxyPort}/`;
+
+                  const assets = Object.values(cc.assetManager.bundles._map).flatMap(bundle => {
+                    const bundleAssets = [];
+                    for (const key in bundle._config?.paths?._map || []) {
+                      try {
+                        var bundleAsset = bundle._config.paths._map[key];
+                        for (var b of bundleAsset) {
+                          var uuid = b.uuid;
+                          if (uuid) {
+                            const url = cc.assetManager.utils.getUrlWithUuid(uuid);
+                            if (!url.startsWith('db://') && !url.startsWith('undefined'))
+                              bundleAssets.push(url);
+                          }
+
+                          var packs = b.packs || [];
+
+                          for (var asset of packs) {
+                            if (asset) {
+                              const url = cc.assetManager.utils.getUrlWithUuid(asset);
+                              if (!url.startsWith('db://') && !url.startsWith('undefined'))
+                                bundleAssets.push(url);
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        console.error(e);
+                      }
+                    }
+
+                    return bundleAssets.map(url => `${newHost}client${path}${url}`);
+                  });
+
+                  console.log(`Downloading ${assets.length} assets`);
+
+                  total = assets.length;
+
+                  div.style.display = 'block';
+                  text.textContent = `Downloading ${downloaded}/${total}`;
+                  progress.style.width = `${(downloaded / total) * 100}%`;
+
+                  try {
+                    for (const asset of assets) {
+                      try {
+                        // await fetch(url, { credentials: 'include' });
+                        // make fetch use queue
+                        queue.push(() => fetch(asset, { credentials: 'include' }));
+                        next();
+                      } catch (e) {}
+                    }
+                  } catch (e) {}
+
+                  // wait for all downloads to finish
+                  while (downloaded < total) {
+                    await new Promise(resolve => requestAnimationFrame(resolve));
+                  }
+
+                  downloaded = 0;
                   div.style.display = 'none';
                   text.textContent = '';
                   downloading = false;
@@ -1653,6 +1791,9 @@ const msgpack = anyNW.global.msgpack;
   function Main() {
     const keydownHandler = ev => {
       if (ev.key === 'r' && ev.ctrlKey) {
+        anyNW.Window.get(null).reload();
+      } else if (ev.key === 'R' && ev.ctrlKey) {
+        anyNW.App.clearCache();
         anyNW.Window.get(null).reload();
       }
     };

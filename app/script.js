@@ -881,7 +881,7 @@ const msgpack = anyNW.global.msgpack;
       const scene = cc.director.getScene();
       if (!scene) return;
       const recursive = node => {
-        if (node.getBoundingBoxToWorld().contains(mousePosition)) {
+        if (node._activeInHierarchy && node.getBoundingBoxToWorld().contains(mousePosition)) {
           for (const component of node._components) {
             for (const key of Object.keys(component)) {
               if (
@@ -890,7 +890,6 @@ const msgpack = anyNW.global.msgpack;
                 typeof component[key] === 'function'
               ) {
                 component[key].apply(component);
-                return;
               }
             }
           }
